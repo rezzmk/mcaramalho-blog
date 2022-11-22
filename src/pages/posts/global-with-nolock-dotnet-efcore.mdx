@@ -17,7 +17,7 @@ This isolation level allows you to read those records even if there are uncommit
 
 # Solution
 
-Well, I've faced this issue multiple times and ended up finding a solution, using the `IQuerySqlGeneratorFactory` contract from **EntityFrameworkCore**.
+Having faced this issue multiple times the solution that works the best for me is using the `IQuerySqlGeneratorFactory` contract from **EntityFrameworkCore**.
 
 The idea here is that we'll be replacing the default implementation of `IQuerySqlGeneratorFactory` with our own. This 
 makes it so all queries pass through it, allowing us to add the desired **WITH (NOLOCK)** in each **SELECT** statement.
