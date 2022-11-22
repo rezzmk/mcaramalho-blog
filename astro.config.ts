@@ -11,7 +11,7 @@ export default defineConfig({
 			wrap: true,
 		},
 	},
-	site: "https://cute-biscuit-fb1164.netlify.app/",
+	site: "https://mcaramalho.com",
 	integrations: [
 		mdx({}),
 		tailwind({

@@ -1,6 +1,6 @@
 const siteMeta = {
   title: "Marcos Caramalho",
-  description: "",
+  description: "Blog",
   lang: "en-GB",
   ogLocale: "en_GB",
   githubUrl: "https://github.com/rezzmk",
