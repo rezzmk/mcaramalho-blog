@@ -1,0 +1,248 @@
+---
+layout: "@/layouts/BlogPost"
+title: Dependency Injection in .NET Core
+publishDate: 21 July 2021
+description: Brief overview on Dependency Injection in .NET Core.
+categories: ["dependency-injection", "programming", "patterns", ".NET"]
+tags: ["dotnet", ".NET", "configuration", "Core", "tutorial"]
+seoMetaDescription: 'Overview on Dependency Injection in .NET Core'
+---
+
+Have you ever tried to read through [Microsoft's stuff on Dependency Injection](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection?view=aspnetcore-7.0) 
+just to find yourself with more questions than you began with? Well, 
+in this post I'll try to explain the concept of “injecting dependencies”, as well as the different lifetimes for said dependencies you can configure on your projects.
+
+# What is Depedency Injection
+
+Well, in basic terms, it's just passing the properties of a certain object into another. Let me quickly illustrate this concept with a real-world example:
+
+```csharp
+public class MyAwesomeController : Controller {
+    private readonly IAwesomeService _service;
+    public MyAwesomeController() {
+        _service = new MyAwesomeServiceImplementation();
+    }
+}
+```
+
+Ok, so you may have done something like this in the past, where you've got a class and in its constructor, you instantiate some service you need. This service can be anything, 
+like a database context (Entity Framework likes those).
+
+The problem with this, as you can imagine, is that the `IAwesomeService` is scoped to this controller instance. Now, this may actually be the desired behavior, but usually, 
+on these type of services you want a single instance (more on this later) to run throughout your application, that means you may want to “share” this service with every single class instance that uses it.
+
+Now, let's refactor the code above to take advantage of dependency injection:
+
+```csharp
+public class MyAwesomeController : Controller {
+    private readonly IAwesomeService _service;
+    public MyAwesomeController(IAwesomeService service) {
+        _service = service;
+    }
+}
+```
+
+You see it looks almost the same, but now we're passing the service as a constructor argument. If you were to try and run this code like this, you'd see one of two things: 
+1) Compiler doesn't let you compile
+2) It'll throw a `NullReferenceException` the moment you try to access the service
+
+So, the next step is to make sure we understand how we can configure our project to have this dependency, i.e. `IAwesomeService` properly passed to the controller, or any other class we want to take the same approach on.
+
+On .Net Core, this is really simple to do, because we can take advantage of some methods that will effectively “register” our dependencies so they're properly injected everywhere.
+
+# Registering Dependencies
+
+In order to register a dependency, you can do the following in your `Startup` class:
+
+```csharp
+public void ConfigureServices(IServiceCollection services){
+    services.AddScoped<IAwesomeService, MyAwesomeServiveImplementation>();
+    ...
+    ...
+}
+```
+
+You see the `AddScoped()` call there? Well, that's not the only way to do this. There are *3 different ways to register dependencies* like this on .Net Core, which are `AddScoped()`, `AddTransient()` and `AddSingleton()`.
+
+The difference between them is the lifetime of the object that will be created and injected into your classes, e.g. Controllers.
+
+It's also important to note that there's not much magic being made here, they just give your classes an instance of an object based on its lifetimes. 
+You can think of it as letting .Net take care of managing instances instead of you having to create all the logic for that. At the end of this post, 
+You'll see a very simple example of how you can create a Singleton pattern without any special stuff, just barebones C#, which also applies to other languages, such as Java.
+
+# Lifetimes
+
+A lifetime in this context, is as the name suggests, the “amount” of time your dependency will live until it's disposed of.
+You may have heard about a Singleton before, but what are the differences between the 3 lifetimes I've mentioned above?
+
+- **Singleton**: Probably the most known one throughout software development, with this you'll have only one instance of your service that's used everywhere, no exceptions. 
+This is great for services that don't change states between scopes and/or the classes that inject them. Also good for some heavy services that may need to cache a lot of stuff in memory.
+- **Transient**: This means you'll have a new instance of your service every time it's asked for, i.e. every time you instantiate a controller or any other class that injects the service.
+- **Scoped**: This is widely used in Web APIs, with this one, you'll have a new instance of your service per request, thus the scoped name, where the scope is basically from the moment you get 
+the request on your API all the way to the moment you return the response.
+
+# Pick one!
+
+Unfortunately, I can't tell you which lifetime is the best, or which one you should choose. That will depend on your problem, but a general rule of thumb is: **"When in doubt, go Transient"**.
+
+# Inversion of Control (IoC)
+
+This thing is a bit complicated to understand if you start reading some theory on it, so I'll try to **ELI5** this.
+
+Basically, you can think of it as creating all the dependencies your classes may have before actually instantiating said classes, thus “inverting” the control of your program. 
+The very first example I gave shows this well enough, where you have the first one with a `new AwesomeServiceImplementation()` on a constructor, meaning that the class itself will 
+create this dependency when its instance (the constructed class) is created.
+
+In the second example, however, you see that when the Controller is instantiated, there's already an instance of the service and this, my friends, is Inversion of Control.
+
+There's a lot of theory on this subject and a lot of fundamentalism you can have a laugh at, but at its core, you might as well just understand that IoC is creating dependency 
+instances before instantiating the objects that will be using these dependencies.
+
+# Why inject interfaces?
+
+IoC allows you to inject a class type directly, however, as you may have already thought, by injecting an interface instead of an implementation type, 
+you're effectively giving yourself a little breathing room for future changes by making your code a bit more modular.
+
+Let me give you an example, you have an `ISynthesizer` interface that looks like this:
+
+```csharp
+public interface ISynthesizer {
+    public byte[] GetSynthesizedResult(string text);
+}
+```
+
+For the sake of argument, all this will do is require you to make an implementation of a Synthesizer that takes some text and synthesizes it into some audio you can save or do whatever you want with.
+
+Now, there are multiple services out there that do Text to Speech, from Google TTS, Amazon Polly, Microsoft Speech etc…
+You may want to try out different TTS implementations and as you can imagine, if you were to change, you'd have to go over every class you're injecting the Synthesizer in and change it to the new implementation, 
+which really sucks if your codebase is any serious.
+
+### Solution
+
+If instead of injecting the implementation you inject an interface, all you need to do is to change one line of code (usually), on your ``Startup` class, where you're registering the dependencies. Let me show you:
+
+```csharp
+public void ConfigureServices(IServiceCollection services) {
+	services.AddSingleton<ISynthesizer, AmazonSynthesizer>();
+  	// services.AddSingleton<ISynthesizer, MicrosoftSynthesizer>();
+   	// services.AddSingleton<ISynthesizer, GoogleSynthesizer>();
+     ....
+}
+```
+
+As you can see, you'd really just have to change the implementation being registered to whatever you want/need and you're good to go.
+
+This is really powerful, abstractions are one of the pillars of object-oriented programming, whether you like it or not, so use it!
+Not to mention this will help you tons when you're writing your unit tests (sigh).
+
+# Singleton Pattern without magic
+
+Let's say you're working with an ancient .NET version and you could still use a Singleton in your life, how should you go about it? Well, here's one way.
+By the way, this is not .NET specific, this is an actual design pattern that you can use in any OOP language.
+
+```csharp
+public class Singleton {
+    // The constructor should be private, to prevent the creation of a new instance using the new() keyword,
+    // from outside this scope.
+    private Singleton() { }
+
+    // Here we're storing an instance of our Singleton class
+    private static Singleton _instance;
+
+    // This is where the magic happens. If a Singleton instance hasn't been created, get one!
+    // otherwise, return the one we've got stored already
+    public static Singleton GetInstance() {
+        if (_instance == null) {
+            _instance = new Singleton();
+        }
+        return _instance;
+    }
+
+    // From here one, it's no man's land, do whatever you want, your singleton's gotta do something, right?
+    public static void Foo() {
+        // TODO
+    }
+}
+```
+
+Now, every time you want to use this singleton, all you need to do is:
+
+```csharp
+class Program {
+    static void Main(string[] args) {
+        var instance = Singleton.GetInstance();
+        instance.Foo();
+
+        //
+    }
+}
+```
+
+This way you'll always use the same instance of the class Singleton, which is created the first time you call GetInstance() on it.
+
+Now, this is all fun and games but the more astute amongst you have probably noticed this ain't thread-safe, so how do we fix it?
+If you're still in ancient land, you can use a lock for this, which I won't go into detail here because this post is already a book but I might write a post about it later.
+
+Here's how you would do it (one of multiple ways):
+
+```csharp
+public class Singleton {
+    // The constructor should be private, to prevent the creation of a new instance using the new() keyword,
+    // from outside this scope.
+    private Singleton() { }
+
+    // Here we're storing an instance of our Singleton
+    private static Singleton _instance;
+
+    // Our locking object, which will be used to maintain thread safety
+    private static readonly object _lock = new object();
+
+    // This is where the magic happens. If a Singleton instance hasn't been created, get one!
+    // otherwise, return the one we've got stored already
+    public static Singleton GetInstance() {
+        if (_instance == null) {
+            // Here's where the juicy part happens. Multiple threads may get here and pass the
+            // _instance == null statement, meaning multiple threads will try to create a new instance.
+            // This lock keyword makes it so only one thread (the first to get here) will be able to reach
+            // the point where it actually runs the _instance = new Singleton(); line.
+            lock (_lock) {
+                // We still need to check for null here because there's a chance that the first thread
+                // created the singleton and now you've got other threads aquiring the locks, trying to run
+                // new Singleton(), so we check again.
+                if (_instance == null) {
+                    _instance = new Singleton();
+                }                
+            }
+        }
+        return _instance;
+    }
+
+    // From here one, it's no man's land, do whatever you want, your singleton's gotta do something, right?
+    public static void Foo() {
+        // TODO
+    }
+}
+```
+
+See? Quick and painless, please keep in mind this is also how you'd do it in other programming languages similar in syntax so I think it's really good knowledge to acquire.
+
+# Be Lazy
+
+Another way to do it, if you're using .NET 4 with C# 6.0 and above, is to use the `Lazy` class.
+The Lazy class is an implementation of the Lazy pattern, where you're effectively only really creating something when it's needed, 
+and this is how it would look like in your code. Please read more about this [here](https://learn.microsoft.com/en-us/dotnet/api/system.lazy-1?view=net-5.0)
+
+```csharp
+public class Singleton {
+    private Singleton() { }
+
+    private static readonly Lazy<Singleton> lazy = new Lazy<Singleton>(() => new Singleton());
+    public static Singleton Instance => lazy.Value;
+
+    public void Foo() {}
+}
+```
+
+Looks much better, right?
+
+This is all for this post. I hope it is of use to someone out there and thanks for reading!

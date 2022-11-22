@@ -1,0 +1,99 @@
+---
+layout: "@/layouts/BlogPost"
+title: Custom IConfiguration Providers on .NET Core
+publishDate: 17 July 2021
+description: Adding additional custom Configuration Providers on .NET Core.
+categories: ["tutorials", "programming"]
+tags: ["dotnet", ".NET", "configuration", "Core", "tutorial"]
+seoMetaDescription: 'Adding additional custom Configuration Providers on .NET Core, on IConfiguration'
+---
+
+If you're like me, you've worked on projects where configuration keys are scattered throughout multiple sources, 
+whether it is a file, a database, environment variables, or any other source that's not “supported” out of the box from the `ConfigurationBuilder`.
+
+I'll be showing you how you can create a custom configuration source, allowing you to effectively take advantage of dependency injecting `IConfiguration` 
+into any service you want and just use it as you normally would, i.e.
+
+`var configurationValue = configuration[KEY];`
+
+# How?
+
+The first thing I like to create is the actual configuration provider so that we can set the rules of access to our key-value pairs. 
+Sounds complicated but it isn't, start with:
+
+```csharp
+public class CustomConfigurationProvider : IConfigurationProvider {
+	public IEnumerable<string> GetChildKeys(IEnumerable<string> earlierKeys, string parentPath) => earlierKeys;
+	public IChangeToken GetReloadToken() => new CustomConfigurationChangeToken();
+	public void Load() {}
+
+	// Configure with whatever method of config access you wish here
+	public void Set(string key, string value) => throw new NotImplementedException();
+	public bool TryGet(string key, out string value) => throw new NotImplementedException();
+}
+```
+
+The `CustomConfigurationProvider` class above inherits from `IConfigurationProvider`, which will implement the methods necessary for accessing our new configuration source.
+
+### So many things to implement, what do they do?
+
+- `GetChildKeys(…)`: If you read Microsoft's documentation for this and you're like me, you'll probably feel pretty stupid and not understand jack sh*t of what they're saying, 
+so let me explain in simpler words. You can have multiple configuration sources, each with their own keys; GetChildKeys() is used to obtain the keys of all child nodes for the 
+configuration section that the parentPath points to, which may or may not be of interest to you. Usually I just straight up return the Tahomargument that's passed to GetChildKeys() 
+here but custom logic can be made, of course.
+- `GetReloadToken()`: This returns a change token in case the provider supports change tracking. If you're not supporting change tracking you might as well just return null, no problem. 
+You'll see that we're returning a CustomConfigurationToken() here, I'll explain that later.
+- `Load()`: This is where you put your configuration loading logic, e.g. Database initializations and so on… for a very basic source, like accessing a file with a 
+specific json structure where you just need to read and deserialize, for example, this method can do absolutely nothing. Think of it like the place you'd put your constructor logic.
+- `Set()`: I mean, this one is obvious, r..right? Just put your config set logic here, if applicable. There might be situations when the configuration sources are just read-only, 
+so you can either do nothing with Set() or potentially throw a custom exception alerting the user that he/she's messing it up!
+- `TryGet()`: Here you put all the actual configuration access logic. You basically set value to the output (result) and return true/false in case of success/failure.
+
+In case you want to see some more advanced examples, Microsoft's docs is a good place to start, as they're a bit [fancier](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-5.0#environment-variables) with it.
+
+### What Now?
+
+So, now that this wall of text is out of the way, let's do the next step, which is implementing the `CustomConfigurationChangeToken` class. We inherit from `IChangeToken` and implement the `RegisterChangeCallback(…)` method.
+
+- `RegisterChangeCallback()`: In here you register a callback for when the configurations change. Let's say that you're using a database source for your configs, 
+you could have the database send an event to your application, which would then trigger this callback and potentially change running-time behavior with it. 
+There's a caveat though, before this callback is called, you must set HasChanged to true. I think you should read their [documentation](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.primitives.ichangetoken?view=dotnet-plat-ext-5.0)
+for this one, it's simple and concise.
+
+```csharp
+public class CustomConfigurationChangeToken : IChangeToken {
+	public IDisposable RegisterChangeCallback(Action<object> callback, object state) => new object() as IDisposable;
+	public bool ActiveChangeCallbacks => false;
+	public bool HasChanged => false;
+}
+```
+
+We're almost there, let's now create a `CustomConfigurationSource`, which inherits from `IConfigurationSource`.
+
+```csharp
+public class CustomConfigurationSource : IConfigurationSource {
+	public IConfigurationProvider Build(IConfigurationBuilder builder) => new CustomConfigurationProvider();
+}
+```
+
+The code above just says “Hey man, take this provider I just wrote and do your magic attaching the configurations so I can use them with the IConfiguration interface”. 
+It's that simple yeah?
+
+*FINALLY!*, you can go ahead and add `.ConfigureAppConfiguration(c => c.Add(new CustomConfigurationSource())` on your `Program` class, as such:
+```csharp
+public class Program {
+    public static void Main(string[] args) {
+        CreateWebHostBuilder(args).Build().Run();
+    }
+
+    public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+        WebHost.CreateDefaultBuilder(args)
+           .ConfigureAppConfiguration(c => c.Add(new CustomConfigurationSource()) // This is what you add
+           .UseStartup<Startup>();
+}
+```
+
+You're now ready to test this out and see if it works for you, it certainly has done me wonders in a few projects. If you're interested, 
+I've got a [GitHub Repo](https://github.com/rezzmk/asp-core-webapi-boilerplate) you can check, with some boilerplate code, and [this](https://github.com/rezzmk/asp-core-webapi-boilerplate/blob/main/src/WebApi.Common/WebApi.Common.Core/Configuration/CustomConfigurationSource.cs) just points to the Provider code in case you prefer to copy paste from there 🙂
+
+Thanks for putting up with this post.

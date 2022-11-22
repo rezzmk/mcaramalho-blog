@@ -11,7 +11,7 @@ export default defineConfig({
 			wrap: true,
 		},
 	},
-	site: "https://www.astro-theme-cactus.netlify.app",
+	site: "https://cute-biscuit-fb1164.netlify.app/",
 	integrations: [
 		mdx({}),
 		tailwind({
