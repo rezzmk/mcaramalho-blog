@@ -41,7 +41,7 @@ The important rules for **PKCS#7** are as follows:
 
 1) We will **always** have padding, even if the message to be padded is a multiple of our block size, e.g. a message of 8 bytes, 
 with block size 8, will end up padded all the way to 16 bytes. Alternatively, a 16 byte message will end up 
-with 24 bytes and a 15 byte message will get padded to 16 bytes. So, at least you will **always** have **> 1** byte of padding.
+with 24 bytes and a 15 byte message will get padded to 16 bytes. So, at least you will **always** have 1 or more bytes of padding.
 2) All padded bytes will contain the same value, equal to the number of bytes of padding, 
 e.g. 8 bytes of padding means the padded message will have 8 bytes with value 8.
 3) When unpadding, all we do is look at the last byte, get its value, and remove that number of 
