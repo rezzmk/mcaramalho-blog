@@ -15,36 +15,36 @@ const {
 } = Astro.props as Props;
 ---
 
-<html lang={siteMeta.lang}>
-	<head>
-		<BaseHead title={title} description={description} image={image} />
-		<script define:vars={{ siteMeta }}>
-			const root = document.documentElement;
-			const colorThemeMetaTag = document.querySelector(
-				"meta[name='theme-color']"
-			);
-			const theme =
-				typeof localStorage !== "undefined"
-					? localStorage.getItem("theme")
-					: null;
-			if (
-				theme === "dark" ||
-				(!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-			) {
-				root.classList.add("dark");
-				colorThemeMetaTag.setAttribute("content", siteMeta.themeColorDark);
-			} else {
-				root.classList.remove("dark");
-				colorThemeMetaTag.setAttribute("content", siteMeta.themeColorLight);
-			}
-		</script>
-	</head>
-	<body>
-		<SkipLink />
-		<Header />
-		<main id="main" class="flex-2">
-			<slot />
-		</main>
-		<Footer />
-	</body>
-</html>
+<link
+	rel="stylesheet"
+	href="https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css"
+	integrity="sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ"
+	crossorigin="anonymous"
+/>
+
+<BaseHead title={title} description={description} image={image} />
+<script define:vars={{ siteMeta }}>
+	const root = document.documentElement;
+	const colorThemeMetaTag = document.querySelector("meta[name='theme-color']");
+	const theme =
+		typeof localStorage !== "undefined" ? localStorage.getItem("theme") : null;
+	if (
+		theme === "dark" ||
+		(!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+	) {
+		root.classList.add("dark");
+		colorThemeMetaTag.setAttribute("content", siteMeta.themeColorDark);
+	} else {
+		root.classList.remove("dark");
+		colorThemeMetaTag.setAttribute("content", siteMeta.themeColorLight);
+	}
+</script>
+
+<body>
+	<SkipLink />
+	<Header />
+	<main id="main" class="flex-2">
+		<slot />
+	</main>
+	<Footer />
+</body>

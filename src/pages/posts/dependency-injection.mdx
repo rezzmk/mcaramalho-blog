@@ -107,7 +107,7 @@ Let me give you an example, you have an `ISynthesizer` interface that looks like
 
 ```csharp
 public interface ISynthesizer {
-    public byte[] GetSynthesizedResult(string text);
+    byte[] GetSynthesizedResult(string text);
 }
 ```
 
@@ -134,6 +134,17 @@ As you can see, you'd really just have to change the implementation being regist
 
 This is really powerful, abstractions are one of the pillars of object-oriented programming, whether you like it or not, so use it!
 Not to mention this will help you tons when you're writing your unit tests (sigh).
+
+Finally, to inject your dependency wherever you want, let's say a controller, all you need is something like:
+
+```csharp
+public class MyController {
+    private readonly ISynthesizer _synth;
+    public MyController(ISynthesizer synth) => _synth = synth;
+}
+```
+
+Voila!
 
 # Singleton Pattern without magic
 
