@@ -1,0 +1,91 @@
+---
+layout: "@/layouts/BlogPost"
+title: Rendering LaTeX Math in Astro
+publishDate: 26 Nov 2022
+description: How to add LaTeX Math rendering to Astro blog posts
+categories: ["astro", "latex", "blogging", "tutorials"]
+tags: ["astro", "katex", "math", "remark", "rehype", "tutorial"]
+seoMetaDescription: 'How to add LaTeX Math rendering to Astro blog posts'
+---
+
+# Objective
+
+Hi there, in this post I'll be explaining a way to render LaTeX Math symbols, and consequently, any formulas or expressions you want, on an Astro blog post.
+
+We'll be taking advantage of a couple plugins to achieve this. Our end result will allow us to write something like:
+
+```text
+$f(x) = 2x$
+```
+
+to achieve $f(x) = 2x$. I think we can all agree that LaTeX typesetting's really one of the best out there, thus its popularity.
+
+If you just want the solution, jump to [#Solution](#solution).
+
+#### MDX Plugins
+
+I'm assuming you already know what **MDX** is since you're here, but if you don't, it's basically markdown on steroids, allowing you to embed JS components in it.
+You can read more [here](https://mdxjs.com/).
+
+What you may not know is that it supports plugins. We care about two specific families of plugins, **remark** and **rehype**.
+[**remark**](https://github.com/remarkjs/remark) plugins allow you to transform markdown, where [**rehype**](https://github.com/rehypejs/rehype) transforms HTML (the final product of static page generators).
+
+These can be installed with your node package manager, like **npm** or **pnpm**.
+
+More information on extending **MDX** can be found [here](https://mdxjs.com/docs/extending-mdx/).
+
+#### LaTeX plugins
+
+To allow us to render math properly, we'll use the following plugins:
+
+- [**rehype-katex**](https://www.npmjs.com/package/rehype-katex): Rehype plugin to support rendering inline math in HTML
+- [**remark-math**](https://www.npmjs.com/package/remark-math): Remark plugin to support math, in the form of \$your math formula\$
+
+# Solution
+
+Install the plugins with:
+
+```bash
+npm install rehype-katex
+npm install remark-math
+```
+
+Then, add these references to your `astro.config.ts` file, specifically to the `defineConfig` section.
+
+```typescript
+import rehypeKatex from 'rehype-katex'; // relevant
+import remarkMath from 'remark-math';   // relevant
+
+export default defineConfig({
+	markdown: {
+		shikiConfig: {
+			theme: "dracula",
+			wrap: false,
+		}
+	},
+	site: "https://mcaramalho.com",
+	integrations: [
+		mdx({
+			remarkPlugins: [remarkMath], // relevant
+			rehypePlugins: [rehypeKatex] // relevant
+		}),
+		image(),
+		sitemap(),
+	],
+});
+```
+
+Now, you should make sure that the following stylesheet is referenced. You can reference this anywhere you want, I have a `BlogPost.astro` file that's the base for all my blog posts, which is the only place I'm planning on writing LaTeX, so I have it there.
+
+```html
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css"
+    integrity="sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ"
+    crossorigin="anonymous"
+/>
+```
+
+This is it, you can now start writing math that looks good, or just write $\LaTeX$ the cool way.
+
+Thanks for reading, bye now.

@@ -15,13 +15,6 @@ const {
 } = Astro.props as Props;
 ---
 
-<link
-	rel="stylesheet"
-	href="https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css"
-	integrity="sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ"
-	crossorigin="anonymous"
-/>
-
 <BaseHead title={title} description={description} image={image} />
 <script define:vars={{ siteMeta }}>
 	const root = document.documentElement;
@@ -40,11 +33,9 @@ const {
 	}
 </script>
 
-<body>
-	<SkipLink />
-	<Header />
-	<main id="main" class="flex-2">
-		<slot />
-	</main>
-	<Footer />
-</body>
+<SkipLink />
+<Header />
+<main id="main" class="flex-2">
+	<slot />
+</main>
+<Footer />
