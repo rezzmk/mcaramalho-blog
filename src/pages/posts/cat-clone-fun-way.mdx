@@ -1,0 +1,445 @@
+---
+layout: "@/layouts/BlogPost"
+title: Reading files the 1337 way
+publishDate: 27 Nov 2022
+description: How to go from reading a file in python all the way to assembly
+categories: ["unix", "programming", "c", "python", "nim", "tutorials"]
+tags: ["unix", "programming", "c", "python", "nim", "tutorials"]
+seoMetaDescription: 'How to go from reading a file in python all the way to assembly'
+---
+
+Hi there, in this post I'll be going through multiple layers of abstraction on how to read a file.
+I'll be running everything on a Linux box, but with slight adjustments, the same could be done for Windows.
+
+I'm very interested in low-level systems, and understanding how the things we take for granted work gives me joy.
+One of such things is simply reading a file, depending on the language, we can go from being able to read a file in a one-liner, or in very confusing ways, in languages like C.
+
+If there's one thing I would like for the reader to take from this post, is that all these programming languages will eventually go to the same level, the kernel, to ask for its contents.
+After these requests get to the kernel, one level deeper we have our CPU instructions and for this, we'll look at some assembly. If you don't know what the kernel is, no worries, I'll give a high-level explanation of it.
+
+The requests we do to the kernel are called system calls, or syscalls, and they're the way our software can ask for things that it inherently doesn't have access to, such as files.
+
+# The Kernel
+
+The Kernel is essentially the core of our operating system. This is true for both Windows and Unix systems, among others.
+**Not all operating systems have a kernel, but those we care about do. There's a good article about Kernel-less operating systems [here](https://dl.acm.org/doi/pdf/10.5555/1082161.1082193) but it's besides the point of this post**
+
+Conceptually, the Kernel is the bridge between the software we write/use, and the bare-metal components on our computer. For instance, you can't really write code that directly tells the CPU to run a certain instruction, this is always done by the Kernel, via syscalls.
+
+There are also different types of kernels, such as monolithic, microkernels and hybrid. Unix uses the monolithic approach, where everything runs in a single address space. Microkernels will run pretty much everything in something called User Space, which makes it more modular, but at the same time, usually slower.
+Then we have hybrid kernels, such as Windows's, where it's a little bit of both.
+
+I don't need to go into details on the kernel, so if you want to read more, there's quite a lot of information on it. A good (and quite old) article about the Linux kernel can be found [here](https://developer.ibm.com/articles/l-linux-kernel/)
+
+# Protection Rings
+
+Another cool concept is something called **Protection Rings**, or if you prefer the fancy pants name, **Hierarchical Protection Domains**. We'll use the first one.
+
+Operating systems will allow you to access resources on different levels. This is a great security risk and as such, **Protection Rings** were invented. These rings are hardware-based, meaning you won't have much luck with your software trickery here.
+
+Here's a picture of the **Protection Rings** in the relevant architecture we'll be exploring today, **x86**
+
+![Protection ring](/images/linux_rings.png)
+
+So, that looks like an onion and in a way, it is. If you start peeling layers you eventually will get to the core, which has access to the deepest things in our machines, **Ring 0**.
+The code we write will usually run in **Ring 3**, meaning it cannot directly access functionality from lower layers, such as **Ring 0**. When you want to read a file, eventually some queries will have to be done by code that's running in **Ring 0** and this is where our system calls come in!!
+
+You can ask for things from **Ring 3** to **Ring 0**, which is what I want you to take away from this.
+
+There's a LOT of theory on this and it's pretty complicated, if you're interested, start by the [wiki](https://en.wikipedia.org/wiki/Protection_ring) and go down the rabbit hole from there.
+
+The relevance of these **Protection Rings** is knowing that, because of them, we have **syscalls**, and because of **syscalls**, we have access to hardware resources.
+
+# Coding Time!
+
+Ok, let's start with the actual purpose of this post, which is to read a file in different levels of difficulty. We can start by using a programing language like python, which is pretty high level.
+
+First, let's create a file for testing:
+
+```shell
+echo "hello world" > hello
+```
+
+#### Python
+
+Now, to read a file in python and print its outputs to stdout, we can do something like:
+
+```python
+with open('readme.txt') as f:
+    print(f.readlines())
+```
+
+**By the way, stdout is seen as a file, so when we print something to the screen, we're basically writing what we want to this "file". stdout, alongside stdin (for inputs), and stderr (for errors) are called streams**
+
+Running the above will yield the following:
+
+![Python 1](/images/python1.png)
+
+So, now I want to show you something pretty cool. Remember when I mentioned that all of these programs would eventually land in the kernel, via syscalls? We can actually see what these syscalls are by using a tool called **strace**.
+**strace** allows you to trace system calls and signals (usually seen as interrupts as well).
+
+Using **strace** on our newly created python program, will show us some super weird output, let's focus at the end of it:
+
+![Python 2](/images/python2.png)
+
+As you can see, we have some system calls being made. The `openat(...)` call will "open" our file and return a file descriptor, which is used to identify the file.
+The `fstat(...)` call will allow us to know the file attributes, such as its size. This is super useful when you're reading files in languages like C, because you need to pre-allocate a buffer to read the file into.
+The `lseek(...)` just says "Point to the first byte in the file". The `read(...)` syscall will read the actual contents of the file and finally, the `write(...)` call will write these contents, in our case, to **stdout**
+
+A cool trick to understand these functions is to plug them [here (example for fstat)](https://linux.die.net/man/2/fstat).
+
+This proves that even python will have to ask the mighty kernel to get the contents of the file. Note that you'll see other file reads in your **strace** output, this has to do with the fact Python is an interpreted language, so, it has to read your script and run it.
+It's also why python is sluggish as hell!
+
+#### Rust
+
+Let's now do the same thing for Rust, and see what happens when we run it in **strace**.
+Our code looks like:
+
+```rust
+use std::{
+    fs::File,
+    io::{Error, Read},
+};
+
+fn main() -> Result<(), Error> {
+    let mut file = File::open("hello")?;
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+
+    println!("{}", text);
+
+    Ok(())
+}
+```
+
+I'll spare you the stdout output and will go straight to the **strace** result:
+
+![Rust 1](/images/rust1.png)
+
+So, you see? There they are again, the only major difference is that instead of using `fstat`, it uses [`statx`](https://man7.org/linux/man-pages/man2/statx.2.html), but the idea is the same.
+
+#### C
+
+Now that we understand this, can we call these system functions directly? Yes, we actually can, let's go for our version in C, which is painful compared to our first toy language (kidding) and Rust.
+
+We begin by reading a file the normal way, using functions such as `fgets`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    FILE* file_ptr;
+    char buf[100];
+    file_ptr = fopen("hello", "a+");
+
+    if (NULL == file_ptr) {
+        printf("error opening file \n");
+    }
+
+    while (fgets(buf, 100, file_ptr) != NULL) {
+        printf("%s", buf);
+    }
+
+    fclose(file_ptr);
+    return 0;
+}
+```
+
+Can you spot the problem with the code above? Yeah, we're forcing the buffer allocation size to be 100 bytes (1 char = 1 byte). This is not the most ideal scenario, but let's first see what **strace** tells us.
+
+![C1](/images/c1.png)
+
+Again, I bet you're getting tired of seeing the same syscalls over and over again! The fun part about C is that you can actually call those functions yourself. Let's do it then.
+
+```c
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+int main() {
+    int fd = openat(AT_FDCWD, "hello", O_RDONLY);
+
+    struct stat finfo;
+    fstat(fd, &finfo);
+
+    size_t buffer_size = finfo.st_size;
+    char *buffer = malloc(buffer_size);
+
+    while (true) {
+        ssize_t size = read(fd, buffer, buffer_size);
+
+        if (size == 0) {
+            break;
+        }
+
+        write(STDOUT_FILENO, buffer, size);
+    }
+
+    write(STDOUT_FILENO, "\n", 1);
+    return 0;
+}
+```
+
+Yikes, ok, so before I even tell you what's going on, note that there are some validations missing, like checking if we were actually able to open the file, by asserting if `fd != -1` and so on...
+
+We're using the `openat()` call now. **AT_FDCWD** tells **openat** to operate under the current working directory. **O_RDONLY** tells **openat** to open the file in readonly mode.
+
+```c
+struct stat finfo;
+fstat(fd, &finfo);
+```
+
+This part is the call to `fstat()`, allowing us to get some information on the file (descriptor **fd**). It'll populate a struct of type **stat** for us, which we can use to get the size of the file with `finfo.st_size`.
+
+Now that we have the file size, we can just use the good old `malloc` to allocate a buffer with the size of the file.
+
+The last magic block is:
+
+```c
+while (true) {
+    ssize_t size = read(fd, buffer, buffer_size);
+
+    if (size == 0) {
+        break;
+    }
+
+    write(STDOUT_FILENO, buffer, size);
+}
+
+write(STDOUT_FILENO, "\n", 1);
+```
+
+This instructs our kernel to `read()` the file with descriptor **fd** to our **buffer** of size **buffer_size (our file size)**.
+We do this until `read()` returns 0, where we assume we've reached the end of the file.
+
+While we read it, we also write to **stdout** by calling `write()` directly, on **STDOUT_FILENO (stdout file descriptor number)**.
+
+This approach of reading a file can be really useful when you're reading, for instance, files from **stdin**, so keep that in mind and use it if you need it. These functions are not cross-platform, so don't try them on things like Windows.
+
+Running **strace** on this we get:
+
+![C2](/images/c2.png)
+
+Yeah, it's pretty much the same, I think you get the idea now, so let's go deeper to the land of the crazy.
+
+#### Assembly
+
+Allright, this is as far as I can personally go as I still need to gain some wisdom from the gods to go below this level, but let me show you how to read a file the professional way.
+
+I'm using **[nasm](https://nasm.us/)** here, if you're insane you can try other methods. **nasm** is a portable x86 assembler, key word is **portable** :)
+
+You may need to install this if you don't have it already, with:
+
+```shell
+sudo apt-get install nasm
+```
+
+Before we even write our assembly, we need some magic numbers, that point to the system functions we want to call. We can read these [here](https://filippo.io/linux-syscall-table/) or by looking at files such as **/usr/include/asm/unistd_64.h**.
+On the site I've just mentioned, let's get the relevant syscalls instruction numbers:
+
+- **exit():** 60
+- **read():** 0
+- **open():** 2
+- **write():** 1
+
+I know this doesn't make sense now, unless you're used to this type of coding, but let me first scare you more with the entire code to read the file, in assembly:
+
+```asm
+            global _start
+
+            section .data
+path:       db      "hello", 0
+
+            section .text
+_start:     mov     rax, 2      ; "open"
+            mov     rdi, path
+            xor     rsi, rsi
+            syscall
+
+            push rax
+            sub rsp, 50
+
+read_file:
+            xor     rax, rax      ; "read"
+            mov     rdi, [rsp+50]
+            mov     rsi, rsp
+            mov     rdx, 50
+            syscall
+
+            test    rax, rax
+            jz      exit
+
+            mov     rdx, rax
+            mov     rax, 1      ; "write"
+            mov     rdi, 1
+            mov     rsi, rsp
+            syscall
+
+            jmp read_file
+
+exit:
+            mov     rax, 60     ; "exit"
+            xor     rdi, rdi
+            syscall
+```
+
+Let's dissect! The `global _start` is **nasm** specific, and it serves the purpose of exporting symbols in our codebase to the object file it'll produce. In this case, we're exporting our starting point.
+
+```asm
+            section .data
+path:       db "hello", 0
+```
+
+This will create a data section, which is used to declare the memory region. In our case, we're storing the file name in memory. The `, 0` at the end is to null-terminate our string.
+
+Let's now jump to the last label so I can explain something. By the way, a label is what you see as `path:`, or `exit:`, which is the one we'll see now:
+
+```asm
+exit:
+            mov     rax, 60     ; "exit"
+            xor     rdi, rdi
+            syscall
+```
+
+This is the way we can make a syscall. I think the best way to explain this is by pointing back to the [website](https://filippo.io/linux-syscall-table/) I linked to earlier.
+
+![linux-system-table-exit](/images/linux-system-table-exit.png)
+
+When you search and find the syscall you want (use the Filter prompt or **CTRL-F**), you can double click it to get some more information, as seen above.
+The important parts here are:
+- The **%rax%** value: This is the syscall number we need, looking at the code above, you can see it there in the first **mov** instruction.
+- What you see after you double click the syscall are the arguments you can pass. Reading it, in this case, tells you "Pass me the error code for the exit function, in the register **rdi**".
+
+So, now we know how to read these thing and apply them. Dissecting the snippet above a little more we get:
+
+```asm
+exit:
+```
+
+Label **exit**, we'll use this when we want to exit the program, by jumping to this label.
+
+```asm
+mov rax, 60
+```
+
+Load the syscall number 60 (exit), to our **rax** register
+
+```asm
+xor rdi, rdi
+```
+
+Set the **rdi** register to 0. XOR'ing a value by itself will give you 0!
+
+```asm
+syscall
+```
+
+Run the syscall set in **rax**, with the relevant arguments, in this case, in the **rdi** registers.
+
+So, this is how to do a syscall in assembly, let me show you the rest of the code now.
+
+```asm
+_start:     mov     rax, 2      ; "open"
+            mov     rdi, path
+            xor     rsi, rsi
+            syscall
+
+            push rax
+            sub rsp, 50
+```
+
+We start our program by opening the file, with the `open()` syscall. You'll see it asks for something like:
+
+- rdi: `unsigned char __user *filename`
+- rsi: `int flags`
+- rdx: `umode_t mode`. We can forget this one, as we did in the C implementation.
+		
+So, we're setting the **path** to the register **rdi** and also providing the flags in the **rsi** register. In our case, we just want to read the file so we're using the flag **0x0 = O_RDONLY**.
+
+The `push rax` instruction pushes the value in the register **rax** onto the stack. This value is our file descriptor, which is the return value from our `open()` call.
+
+The final instruction `sub rsp, 50` tries to reserve 50 bytes, which is what we'll fill with our file data. 
+
+Next, we have our `read()` syscall:
+
+```asm
+read_file:
+            xor     rax, rax      ; "read"
+            mov     rdi, [rsp+50]
+            mov     rsi, rsp
+            mov     rdx, 50
+            syscall
+```
+
+I leave it to you to go look at the arguments and where to set them, as we did with the `open()` call, but let me go through what we're setting in them.
+
+Our **rdi** (**fd (file descriptor)**) is set to **[rsp+50]**. Remember we pushed the return of `open()` (the file descriptor) onto the stack. However, we also reserved 50 bytes which were also pushed onto the stack, so to access the **fd**, we calculate the **stack head + 50**, effectively getting us to the value we want.
+
+We set the **rsi** register to our stack pointer (the **rsp**), which points to the tippity top of it.
+
+We want to allocate 50 bytes to our file so we set that to the **rdx** register.
+
+```asm
+test    rax, rax
+jz      exit
+```
+
+These instructions are pretty cool. The `test rax, rax` will set the **ZF (ZERO FLAG)** if the result of the **AND** operation between the register **RAX** with itself is 0. This will essentially set the **ZF** flag if the `read()` has finished.
+
+The `jz exit` instruction will go to the label **exit**, if the flag **ZF** is set. So, we exit the program right after the `read()` syscall is finished.
+
+```asm
+mov     rdx, rax
+mov     rax, 1      ; "write"
+mov     rdi, 1
+mov     rsi, rsp
+syscall
+
+jmp read_file
+```
+
+Well, now we're writing to **stdout** as long as we have characters to write.
+
+The `mov rdx, rax` will move the return value of our previous `read()` call to the register **rdx**. Remember the `read()` call will return the number of bytes read, so we need this if we want to print to our console.
+
+The `mov rax, 1` should be obvious by now, if not, we're setting the syscall register to the `write()` function.
+
+**rdi** is the file descriptor to write to. **stdout** has a file descriptor of 1.
+
+The `mov rsi, rsp` instruction sets the buffer to our stack pointer. The `write()` call will do the rest using the **rdx** register for the count of bytes to read.
+
+When we execute the syscall, characters will be printed to our console!!
+
+Finally, the `jmp read_file` tells our program to go back to the beginning of that label (**read_file**). This is similar to what we did in C, with our while loop. Our exit condition is the return value of `read()` becoming 0.
+
+**Oof, we're done.**
+
+To compile our program, we'll use **nasm** and **ld** (a binder).
+
+If you want to tinker with the program and run it multiple times, it's best to have an execution script. You can use a **makefile** to build it or if you're like me, just write a shell script.
+
+```shell
+nasm -f elf64 -F dwarf -g read-hello.asm
+ld read-hello.o -o read-hello
+./read-hello
+```
+
+Don't forget to `chmod +x` the script above.
+
+Running our code with **strace** again will leave you speechless (maybe not), if you compare the amount of syscalls that were done in total, with the other programs we've seen so far.
+
+![asm2](/images/asm2.png)
+
+**This is why you really can't go faster then assembly :)**
+
+This is it, hopefully this post helps give you a sense of how deep you can easily go, in doing simple things such as reading a file. It's not rocket science.
+
+Especially this last part, if you understand how to use these syscalls (and the others that exist), you can do some pretty cool things.
+
+Bye now.
