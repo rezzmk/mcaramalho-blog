@@ -386,7 +386,7 @@ You may get a bunch of other things in there, after all, many applications and l
 
 Now, please keep in mind that this actually injects the **dll** everywhere, it's called a **global hook** and these can really mess your system up, be careful!
 
-There are ways to inject **dlls** in single processes, they can be a little bit tricky, I may do a different post on that since I've had to deal with that this issue before.
+There are ways to inject **dlls** in single processes, they can be a little bit tricky, I may do a different post on that since I've had to deal with this issue before.
 
 Just reading logs saying we created or destroyed windows is not fun at all, so let's build some complexity here. We'll start by figuring out a way to filter the processes. We can do this by using a **Windows API** function called `GetWindowModuleFileName()` and then stripping a portion of it, that will contain the process name. Let's add some code to our **dll** and look at the logs:
 
