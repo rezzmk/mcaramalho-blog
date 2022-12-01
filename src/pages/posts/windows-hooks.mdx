@@ -142,7 +142,7 @@ while (GetMessage(&msg, NULL, 0, 0) > 0) {
 }
 ```
 
-What're we doing here? Exactly the message loop picture shows. We get a `while()` loop going until there are no more messages to process (Window closed). Inside we call `TranslateMessage()` and `DispatchMessage()`.
+What're we doing here? Exactly what the message loop picture shows. We get a `while()` loop going until there are no more messages to process (Window closed). Inside we call `TranslateMessage()` and `DispatchMessage()`.
 
 The code that will handle these messages is the `WindowProc()` callback, with which we also create the window according to our needs, when the message is of type **WM_PAINT**.
 
