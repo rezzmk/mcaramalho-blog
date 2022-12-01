@@ -1,0 +1,476 @@
+---
+layout: "@/layouts/BlogPost"
+title: A Primer on Windows Hooks and Message Loops
+publishDate: 1 Dec 2022
+description: An Introduction to how Windows Message Loops work, with Hooks!
+categories: ["windows", "os", "hooking", "injection", "programming"]
+tags: ["windows", "os", "hooking", "injection", "c", "c++"]
+seoMetaDescription: 'Windows Message Loops and Windows Hooks'
+---
+
+Hi there, in this post I'll be going through how to install a Windows Hook and monitor certain events. This is both useful and dangerous, since it's the basis for a lot of bad stuff out there, like keyloggers and other similar <del>cool</del> awful things.
+
+Before we dive in the hooking part, I'll start with the basics of how the **Windows Operating System** handles the creation of windows. This applies for other things, such as keyboard and mouse inputs, and so on...
+
+I'll start by giving a primer on **Window Messages**, which is the backbone of knowledge needed to understand **Windows Hooks**, so let's start!
+
+This post assumes you already have some knowledge of **C++** and how to start projects with it. **Visual Studio** does the whole boilerplate thing very well, so I'll be calling the templates to use.
+
+# A primer on Window Messages
+
+In case it wasn't obvious from its name, most things on **Windows (The operating system)** are represented in the form of window objects. On my previous [post](https://mcaramalho.com/posts/reading-files-1337/) I go through this idea that there are some abstraction layers when it comes to developing software, and that most of what we do will eventually get to a level where the actual operating system's kernel will need to act.
+
+With this idea in mind, let's introduce a new topic, called **Window Messages**. 
+
+#### Windows API
+
+The **Win32 API**, also known in the streets as **The Windows API**, because of more modern versions of windows, is what lets us build applications that can seamlessly run under multiple versions of **Windows**. So, basically, every time your application creates a new window with some pretty buttons on it, eventually it'll take advantage of this API to create and render it.
+
+I won't go into detail on exactly what this API supports, but if you've ever encountered it, you probably know how chaotic it can be. Just go through any low level GUI creation tutorial for Windows and you'll see what I mean, but luckily, in this post I'm mostly focusing on hooking, which I'll explain in a bit.
+
+#### Messages
+
+**Windows** uses something called messages, which are "orders" that fly around the OS every time we do something, like moving the mouse, typing on our keyboards, dragging windows, creating windows, destroying windows, resizing windows... you get the idea.
+
+These messages are sent in the thousands, if you have a lot of activity going around, you'll be dealing with millions of messages in no time, which is also one of the reasons operating systems can feel sluggish at times, since they need to be processed and handled pretty much in real time or the user will see a noticeable delay.
+
+If you have **Visual Studio** installed, one thing you can do is open a Developer Command Prompt from there and start an application called [**Spy++**](https://learn.microsoft.com/en-us/visualstudio/debugger/introducing-spy-increment?view=vs-2022), as such:
+
+```cmd
+C:\Program Files\Microsoft Visual Studio\2022\Community>spyxx.exe
+```
+
+This tool allows you to see inside the chaos of Windows. When you open it, click the little cogwheels to get a list of running processes (multiple ways to do this) and then select a process you want, preferably one with a GUI you can mess around with.
+
+Right click on the process and select **"messages"**. It'll look something like this (using flux here):
+
+![](/images/spypp.gif)
+
+If you move around you'll see a tonne of messages flying around, those are what Windows recognizes and acts upon. Even if you don't touch your application, you'll see that some messages are always being thrown around, that's because of our event loop. Before I show you what the event loop is, you can find a list of **Window Messages** [here](https://wiki.winehq.org/List_Of_Windows_Messages) (Lots of them I know).
+
+#### The Message Loop
+
+If you've ever written a game, you know that you'll need a main loop that's effectively running all the time, and processing user input, frame rendering, points, etc... 
+
+When you create a Window, the same thing happens, although you may not see it, especially when using higher level programming languages.
+
+A Window message loop can look like this:
+
+![message-loop-windows](/images/message-loop-windows.png)
+
+When a window is created, the `CreateWindow()` function from the **Windows API** is called. After that, some other stuff happens for which I'll delay the explanation and, eventually, we get to the actual message loop.
+
+In this loop, we'll be constantly checking if there are any messages in the queue to be processed, such as mouse input messages, like "Moved mouse pointer position to coordinates (x, y)", and so on... This happens extremely quickly.
+
+When a message is found, it's translated and dispatched to the main **WindowProc**. At this stage, it's the OS's job to work and act accordingly. Basically, you dispatch the message to the **Windows** operating system's message handler. The `TranslateMessage()` just converts the messages from the `GetMessage()` or `PeekMessage()` outputs into character messages that are understood. This call may also post new messages to the message queue, depending on the situation.
+
+Ok, let's write some code now. Let's say that you have an application, written in a **SuperChad** language like **C++** and you want to create a window. You could do something like this:
+
+```cpp
+#include <windows.h>
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+    const wchar_t CLASS_NAME[] = L"SuperCoolClassName";
+
+    WNDCLASS wc = { };
+
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindowEx(
+        0,                              // Optional window styles.
+        CLASS_NAME,                     // Window class
+        L"Hello World",                 // Window text
+        WS_OVERLAPPEDWINDOW,            // Window style
+
+        // Size and position
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+
+        NULL,       // Parent window    
+        NULL,       // Menu
+        hInstance,  // Instance handle
+        NULL        // Additional application data
+    );
+
+    if (hwnd == NULL) {
+        return 0;
+    }
+
+    ShowWindow(hwnd, nCmdShow);
+
+    return 0;
+}
+
+LRESULT CALLBACK WindowProc(
+    HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
+) {
+    switch (uMsg) {
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+
+            FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
+
+            EndPaint(hwnd, &ps);
+        }
+    }
+
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+```
+
+The code above actually comes from [Microsoft's Documentation](https://learn.microsoft.com/en-us/windows/win32/learnwin32/creating-a-window) and it's pretty much the boiler plate that's used, with modifications according to what you need (it can get complex pretty quick).
+
+If you run that code you'll see a new Window being created and disappearing instantly. 
+
+**Why?!?** Well, remember this whole message loop thing? We're not doing it here! So we need to add a way to handle messages as they come, to our code. This is simply done by adding the following block of code, right before the main function return statement:
+
+```cpp
+MSG msg = { };
+while (GetMessage(&msg, NULL, 0, 0) > 0) {
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+}
+```
+
+What're we doing here? Exactly the message loop picture shows. We get a `while()` loop going until there are no more messages to process (Window closed). Inside we call `TranslateMessage()` and `DispatchMessage()`.
+
+The code that will handle these messages is the `WindowProc()` callback, with which we also create the window according to our needs, when the message is of type **WM_PAINT**.
+
+**By the way, this `WindowProc()` callback thing, is actually what handles our messages/events.**
+
+Let's run our program, you'll see a simple window like this:
+
+![](/images/new-window.png)
+
+That's not very engaging, but let's deconstruct this a little more by using **Spy++**. On the toolbar, you can click the icon that has some binoculars (the first one), which will open a new window called "Find Window".
+
+Here, you can just drag the crosshair into any Window you have open on your computer, something like:
+
+![](/images/window-finder-spypp.png)
+
+When you click **OK** you'll be greeted with the properties of that window. Inspecting them, you can already see some pretty cool things, which we could use when we're hooking into processes, such as the **Class Name** matching what we set up in our code, "SuperCoolClassName".
+
+![](/images/window-class-name.png)
+
+#### Handling Messages
+
+This is the last thing I want to explain before going into the h4ck32m4n stuff. 
+
+When you do something like clicking the **X** button to close the window, the following happens:
+
+![](/images/DestroyWindow.png)
+
+Allright, what's happening here? The most important thing is to understand that your program does **NOT** need custom logic for every single message out there, that's why we have a **Windows API** function called `DefWindowProc()`. This function will handle a message in the default way, which for something like closing a window, is pretty obvious. 
+Things like sizing, colors, etc... should definitely be handled on the application code. 
+
+Looking at our code from above, the callback `WindowProc()` is the key. We return the result of calling  `DefWindowProc()` on any message that doesn't fit what we have in our switch statement, which will be handled the default way. By "default way" I just mean we don't need to care about it, **Windows** will do it for us.
+
+Looking at the image, we see that when we click the **X** button to close the window, the function `CloseWindow()` is called, which will put a **WM_CLOSE** message in the queue. Our message loop will fetch that thing and pass it through our `WindowProc()`, which will see if there's any custom handling for it. There's not! So, it calls the `DefWindowProc()` function, which will in turn push a new **WM_DESTROY** message.
+
+Lastly, when handling the **WM_DESTROY** message, we now have a case for it:
+
+```cpp
+case WM_DESTROY:
+    PostQuitMessage(0);
+    return 0;
+```
+
+This will force the posting of a **WM_QUIT** message (see it against the picture), that'll end up closing the window.
+
+# Hooks, finally...
+
+Now we're ready to tackle the fun stuff. Hooking is not a **Windows** specific concept. I'm not a native English speaker and I'm lazy, so here's the wiki definition:
+
+> In computer programming, the term hooking covers a range of techniques used to alter or augment the behaviour of an operating system, of applications, or of other software components by intercepting function calls or messages or events passed between software components. Code that handles such intercepted function calls, events or messages is called a hook. - Wikipedia (Hooking)
+
+Yeah, so basically a hook is like putting ourselves in the middle of a system call, intercepting it and doing whatever we want, then returning it to its rightful place. Image time!
+
+![normal usage and hooked](/images/hooked-unhooked.png)
+
+Hopefully it's easier to grasp now, we're really just placing ourselves in a position where we can read these low level calls and do something with them.
+
+When we intercept a system call, if we want it to go through smoothly for the user/application, we need to pass it through like it normally would, the only difference is that we may be able to change the arguments of certain functions, log sensitive information (keyloggers?) and so on...
+
+**A very important thing to note here is latency, if you somehow spend 2 seconds waiting for the dispatching of that intercepted message, and if the message is, for instance, a window resize action, the user will see that delay because it got handled 2 seconds late!**
+
+#### SetWindowsHook()
+
+Usually, the way we achieve hooking on windows is by using a **Windows API** function called `SetWindowsHook()`. The way it works is, we create a library **dll** that contains our intercepting code. Then, we use this function to register that intercepting code against a certain process(es), by specifying a family of messages or events to intercept.
+
+I urge you to look at the [official docs for this](https://learn.microsoft.com/en-us/windows/win32/winmsg/using-hooks). There, you'll see that the different types of hooks we have are:
+
+- WH_CALLWNDPROC
+- WH_CBT
+- WH_DEBUG
+- WH_GETMESSAGE
+- WH_KEYBOARD
+- WH_MOUSE
+- WH_MSGFILTER
+
+For the purpose of this post, we'll focus on the first one (**WH_CALLWNDPROC**), which allows us to intercept the messages related to **windows (the actual windows, not the OS, you get it)**.
+
+#### The pieces
+
+Ok, we're getting closer to end game here. If we want to intercept these messages, the first thing is to identify the pieces we need to develop. 
+
+- **dll** with intercepting code
+- **Injector**. Makes a call to `SetWindowsHook()`, specifying our newly created library and injecting it in the processes.
+
+#### The dll
+
+Let's start by creating a **dll**. You can use **Visual Studio** for this, just create a new **dll C++ project**.
+
+On your **dllmain.cpp** file, you'll want to create a procedure that'll be set on the `SetWindowsHook()` call. Should look like this:
+
+```cpp
+extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
+    int nCode, 
+    WPARAM wParam, 
+    LPARAM lParam
+) {
+	return CallNextHookEx(global, nCode, wParam, lParam);
+}
+```
+
+After we inject this code in our processes and register a hook for it, every relevant message will be intercepted here.
+
+We have to call `CallNextHook()` always, so that the system call is released and processed normally.
+
+**By the way, you may notice that these functions actually have names like `FunctionEx()` instead of `Function()`. There's a reason for this, Microsoft screwed up and the "Ex" stands for "Excuse me". Bottom line is... legacy issues. I mentioned in the beginning that the Windows API is chaotic and ugly, it is what it is**
+
+#### The Injector
+
+Assuming our **dll** is called **CallWndProcHook.dll**, let's now build the code that will inject it, by calling the `SetWindowsHook()` function:
+
+```cpp
+#include <windows.h>
+...
+
+int main() {
+    HMODULE lib = LoadLibrary(L"CallWndProcHook.dll");
+    if (lib) {
+        HOOKPROC procedure = (HOOKPROC)GetProcAddress(lib, "hook_proc");
+        if (procedure) {
+            hook = SetWindowsHookEx(WH_CALLWNDPROC, procedure, lib, 0);
+        }
+        else
+            printf("Can't find hook_proc in dll\n");
+    }
+    else printf("Can't find CallWndProcHook.dll\n");
+
+    if (hook) printf("Successfully installed the hook\n");
+
+    MSG message;
+    while (GetMessage(&message, NULL, 0, 0)) {
+        TranslateMessage(&message);
+        DispatchMessage(&message);
+    }
+
+    if (lib != nullptr) FreeLibrary(lib);
+    if (hook != nullptr) UnhookWindowsHookEx(hook);
+
+    printf("Hook unistalled\n");
+}
+```
+
+First thing to do is to load the **dll** we just created. We can do this using the `LoadLibrary()`. Then we can get the address of our procedure/function by its name. 
+
+With this address, we can easily set our **Windows Hook**, by calling the `SetWindowsHook()` function. It's signature is as follows:
+
+```cpp
+HHOOK SetWindowsHookEx(
+  [in] int       idHook,
+  [in] HOOKPROC  lpfn,
+  [in] HINSTANCE hmod,
+  [in] DWORD     dwThreadId
+);
+```
+
+Looking at the arguments, we pass **WH_CALLWNDPROC** as the hook identifier, our procedure address as the **HOOKPROC**, the **dll** and finally the threadId, which we'll run on 0 (current thread).
+
+After we're hooked, we'll run this in a very similar fashion to the way we ran our **Create Window** application from before. We'll have a message loop that runs permanently until no more messages are found. After that it runs the `FreeLibrary()` and `UnhookWindowsHook()` functions, in order to dispose of that library and uninstall the hook.
+
+One other thing I like to add is some **signal** handlers for when you close the app with **CTRL-C**, and so on...
+
+```cpp
+void terminationHandler(int signum) {
+    printf("SIGINT/SIGTERM caught\n");
+
+    FreeLibrary(lib);
+    UnhookWindowsHookEx(hook);
+
+    printf("Unhooked!\n");
+
+    exit(0);
+}
+
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
+    switch (fdwCtrlType) {
+		case CTRL_C_EVENT:
+		case CTRL_CLOSE_EVENT:
+		case CTRL_BREAK_EVENT:
+		case CTRL_LOGOFF_EVENT:
+		case CTRL_SHUTDOWN_EVENT:
+			printf("SIGINT/SIGTERM caught\n");
+			FreeLibrary(lib);
+			UnhookWindowsHookEx(hook);
+			printf("Unhooked!\n");
+			exit(1);
+			return TRUE;
+		default:
+			return FALSE;
+    }
+}
+```
+
+Put these on top of your main:
+
+```cpp
+signal(SIGINT, terminationHandler);
+signal(SIGTERM, terminationHandler);
+SetConsoleCtrlHandler(CtrlHandler, TRUE);
+```
+
+#### Putting the pieces together
+
+If you run the **injector**, you should see a message like:
+
+```
+WindowsHookExInjector :: Successfully installed the hook
+```
+
+Let's now test if it's actually doing what we want. We'll change our **dll** code to this:
+
+```cpp
+extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
+    int nCode, 
+    WPARAM wParam, 
+    LPARAM lParam  
+) {
+	if (nCode == HC_ACTION) {
+		CWPSTRUCT* data = reinterpret_cast<CWPSTRUCT*>(lParam);
+
+		if (data->message == WM_CREATE) {
+			OutputDebugString(_T("WM_CREATE WINDOW RECEIVED!!!"));
+		}
+		if (data->message == WM_DESTROY) {
+			OutputDebugString(_T("WM_DESTROY WINDOW RECEIVED!!!"));
+		}
+	}
+		
+	return CallNextHookEx(global, nCode, wParam, lParam);
+}
+```
+
+Here, we start by checking the **HC_ACTION** flag. If that's enabled, it means we must act on the message, which serves as a filter for the messages we want to potentially process, such as the **WM_CREATE** and **WM_DESTROY** ones.
+
+We'll be logging the messages we receive, to the **Debug stream** of **Windows**. It's hard to put a debugger on this, so we just use the `OutputDebugString` macro to write some logging. To read these logs, you can download [DebugView](https://learn.microsoft.com/en-us/sysinternals/downloads/debugview). 
+
+**By the way, I called `OutputDebugString` a macro. It is! It'll choose the right `OutputDebugString` function to use because Windows has many, depending on locale, etc... I have no clue how Microsoft let it become like this, it's insanity. Using the macro should work in all cases. The text encoding can be wrapped with a `_T()` macro as well, so we don't need to specify things like L"text", and so on...**
+
+If we run the **injector** and go look at **DebugView**, we should see some logs of our own, e.g.;
+
+![debugview-1](/images/DebugView1.png)
+
+You may get a bunch of other things in there, after all, many applications and libraries will write to this stream, but this just proved our **dll** was injected and it's intercepting things.
+
+Now, please keep in mind that this actually injects the **dll** everywhere, it's called a **global hook** and these can really mess your system up, be careful!
+
+There are ways to inject **dlls** in single processes, they can be a little bit tricky, I may do a different post on that since I've had to deal with that this issue before.
+
+Just reading logs saying we created or destroyed windows is not fun at all, so let's build some complexity here. We'll start by figuring out a way to filter the processes. We can do this by using a **Windows API** function called `GetWindowModuleFileName()` and then stripping a portion of it, that will contain the process name. Let's add some code to our **dll** and look at the logs:
+
+```cpp
+CHAR module_name[MAX_PATH];
+GetWindowModuleFileNameA(data->hwnd, module_name, MAX_PATH);
+OutputDebugStringA(module_name);
+```
+
+Add this anywhere inside the `if (nCode == HC_ACTION) {}` block or the message conditionals (if your PC is slow, this will hurt), run the **injector** and go look at the logs, now you'll see a LOT more stuff, looking like:
+
+![debugview-2](/images/DebugView2.png)
+
+When my **dll** was injected, I opened up our first ever application, and it shows here!
+
+![debugview-3](/images/DebugView3.png)
+
+Let's code our way into filtering only events for this process. Here's the end result, we're just adding a new call to `strstr()` to see if our process is contained within the module name. This is not the optimal solution, I'll leave that for you because I'm lazy.
+
+```cpp
+extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
+    int nCode, 
+    WPARAM wParam, 
+    LPARAM lParam
+) {
+	if (nCode == HC_ACTION) {
+		CWPSTRUCT* data = reinterpret_cast<CWPSTRUCT*>(lParam);
+
+		CHAR module_name[MAX_PATH];
+		GetWindowModuleFileNameA(data->hwnd, module_name, MAX_PATH);
+
+		if (strstr(module_name, "TestCreateWindow.exe") != nullptr) {
+			if (data->message == WM_CREATE) {
+				OutputDebugString(_T("TestCreateWindow.exe WM_CREATE WINDOW RECEIVED!!!"));
+			}
+			if (data->message == WM_DESTROY) {
+				OutputDebugString(_T("TestCreateWindow.exe WM_DESTROY WINDOW RECEIVED!!!"));
+			}
+		}
+	}
+		
+	return CallNextHookEx(global, nCode, wParam, lParam);
+}
+```
+
+Run the **injector** and check the logs again.
+
+![debugview-4](/images/DebugView4.png)
+
+Voila! We're now filtering events to the process we want.
+
+#### Next steps
+
+What can we do with this? We're successfully intercepting these messages, but it's not good enough, we want to break some stuff, so let's do that.
+
+
+```cpp
+extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
+    int nCode, 
+    WPARAM wParam, 
+    LPARAM lParam
+) {
+	if (nCode == HC_ACTION) {
+		CWPSTRUCT* data = reinterpret_cast<CWPSTRUCT*>(lParam);
+
+		CHAR module_name[MAX_PATH];
+		GetWindowModuleFileNameA(data->hwnd, module_name, MAX_PATH);
+
+		if (strstr(module_name, "TestCreateWindow.exe") != nullptr) {
+			if (data->message == WM_CLOSE) {
+				OutputDebugString(_T("TestCreateWindow.exe :: You want to close? Nah, not yet"));
+				Sleep(10000);
+			}			
+		}
+	}
+		
+	return CallNextHookEx(global, nCode, wParam, lParam);
+}
+```
+
+Remember when I mentioned you had to call the `CallNextHook()` function as soon as possible? What happens if you "accidentally" put a `Sleep()` in when someone wants to close the Window?
+
+Yeah, it's going to block until it closes. Try it!
+
+There's a lot you can do with this, I may write a post on how to build a keylogger with this approach. It's actually not complicated at all and it's a fun little project.
+
+**Hopefully you learnt something new, if not, sorry about that. Thanks for reading, bye.**
