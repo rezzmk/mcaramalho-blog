@@ -1,0 +1,480 @@
+---
+layout: "@/layouts/BlogPost"
+title: Rotating screen layout with DEVMODE P/Invokes
+publishDate: 12/4/2022
+description: How to rotate your screen's layout with code, using Windows DEVMODE and some P/Invokes
+categories: ["windows", "devmode", "pinvoke", "screen", "configuration", "tutorials", "C#"]
+tags: ["windows", "devmode", "pinvoke", "screen", "configuration", "tutorials", "C#"]
+---
+
+So, recently, I found myself in a little predicament. I like to play video games and since I'm quite a competitive person, I have a kickass 240hz gaming monitor that I used in my CS:GO glory days, however, due to space constraints in my new place, I have this monitor in portrait mode and everytime I want to play with it, I have to MANUALLY change the screen orientation, every single time! This is unbearable...
+
+![disapointed](/images/disapointment.jpg)
+
+But we can fix this! Let's talk about something called **DEVMODE**.
+
+# DEVMODE
+
+**DEVMODE** is a Windows `struct`, found in the **wingdi.h** header file, which contains information on how our display devices are setup (works for printers too).
+
+You can find information about this struct [here](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-devmodea?redirectedfrom=MSDN).
+
+We'll be taking advantage of this structure very soon when we call `ChangeDisplaySettingsEx()` from **user32.dll**.
+
+The idea is that we'll create a new **DEVMODE** struct and then we pre-populate it using a **user32.dll** function called `EnumDisplaySettings()`, which will take a reference to this struct, populating it.
+
+These **user32.dll** methods/functions are essentially native code you can call from C#. They're not a part of your .NET standard library, so you have to import them somehow (we'll get to that). These can also be tricky because you'll need to deal with pointers... remember, this is a part of Window's native code!
+
+# Importing user32.dll functionality
+
+Let's say you wanted to create a window very similarly to what I showed in my previous post, [here](https://mcaramalho.com/posts/windows-hooks/), but in C#. It's a little trickier, you can't just `using BlaBlaBla` to get to these lower level functions. This is where something called **DllImport()** comes in, it's an attribute you can put on functions/methods you want to import and with it, provided you put the signatures right, you'll have access to calling that library's code, which means you can now start consuming functionality from places like **winuser.h**, or in our case, **wingdi.h**.
+
+So, let's say you want to call the `CreateWindow()` function from your C# code. The first thing you do here, is to check the specification of it in the [official documentation](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa) and then convert the signature to C#, in this case:
+
+```cpp
+HWND CreateWindowExA(
+  [in]           DWORD     dwExStyle,
+  [in, optional] LPCSTR    lpClassName,
+  [in, optional] LPCSTR    lpWindowName,
+  [in]           DWORD     dwStyle,
+  [in]           int       X,
+  [in]           int       Y,
+  [in]           int       nWidth,
+  [in]           int       nHeight,
+  [in, optional] HWND      hWndParent,
+  [in, optional] HMENU     hMenu,
+  [in, optional] HINSTANCE hInstance,
+  [in, optional] LPVOID    lpParam
+);
+```
+
+turns into:
+
+```csharp
+using System.Runtime.InteropServices;
+...
+
+[DllImport("user32.dll", SetLastError=true, CharSet = CharSet.Unicode)]
+static extern IntPtr CreateWindowEx(
+   uint dwExStyle,
+   string lpClassName,
+   string lpWindowName,
+   uint dwStyle,
+   int x,
+   int y,
+   int nWidth,
+   int nHeight,
+   IntPtr hWndParent,
+   IntPtr hMenu,
+   IntPtr hInstance,
+   IntPtr lpParam
+);
+```
+
+Ok, I'll tell you a secret! You don't have to do this manually, just go to this [website](https://www.pinvoke.net/default.aspx/user32/CreateWindowEx.html) and copy the result. If you're curious about what a [**PINVOKE**](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/pinvoke), or [**P/Invoke**](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/pinvoke) is, it's just a way to access structs, callbacks and functions from unmanaged libraries, from your C# managed code. It stands for "Platform Invoke".
+
+Allright, now you know that, given any **Windows API** function, you can just call it directly from C# by searching for it on [pinvoke.net](https://pinvoke.net) or by manually converting it, given its official signature.
+
+# The P/Invokes we want
+
+For the purposes of this post, we specifically want to import 3 functions:
+
+- [`ChangeDisplaySettingsEx()`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-changedisplaysettingsexa): Changes the settings of a specific device, in our case, change the orientation of a screen.
+- [`EnumDisplaySettings()`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaysettingsexa): Gets information on a specific device's settings.
+- [`EnumDisplayDevices()`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaydevicesa): Gets a list of current display devices in the current session.
+
+Now that we know what we need (for now...), let's go get the converted signatures. Here's how they would look:
+
+```csharp
+[DllImport("user32.dll")]
+static extern DISP_CHANGE ChangeDisplaySettingsEx(
+    string lpszDeviceName,
+    ref DEVMODE lpDevMode,
+    IntPtr hwnd,
+    DisplaySettingsFlags dwflags,
+    IntPtr lParam
+);
+
+[DllImport("user32.dll", CharSet = CharSet.Ansi)]
+static extern int EnumDisplaySettings(
+    string lpszDeviceName,
+    int iModeNum,
+    ref DEVMODE lpDevMode
+);
+
+[DllImport("user32.dll")]
+static extern bool EnumDisplayDevices(
+    string lpDevice,
+    uint iDevNum,
+    ref DISPLAY_DEVICE lpDisplayDevice,
+    uint dwFlags
+);
+```
+
+If you put this on your code, the compiler will start crying that it can't find some things. Let's fix that, by going to [pinvoke.net](https://www.pinvoke.net/default.aspx/Structures/DEVMODE.html) and getting our struct definition for **DEVMODE** (we'll do the rest after). It should look like this:
+
+```csharp
+[StructLayout(LayoutKind.Explicit, CharSet = CharSet.Ansi)]
+struct DEVMODE {
+    public const int CCHDEVICENAME = 32;
+    public const int CCHFORMNAME = 32;
+
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHDEVICENAME)]
+    [System.Runtime.InteropServices.FieldOffset(0)]
+    public string dmDeviceName;
+
+    [System.Runtime.InteropServices.FieldOffset(32)]
+    public Int16 dmSpecVersion;
+
+    [System.Runtime.InteropServices.FieldOffset(34)]
+    public Int16 dmDriverVersion;
+
+    [System.Runtime.InteropServices.FieldOffset(36)]
+    public Int16 dmSize;
+
+    [System.Runtime.InteropServices.FieldOffset(38)]
+    public Int16 dmDriverExtra;
+
+    [System.Runtime.InteropServices.FieldOffset(40)]
+    public DM dmFields;
+
+    [System.Runtime.InteropServices.FieldOffset(44)]
+    Int16 dmOrientation;
+
+    [System.Runtime.InteropServices.FieldOffset(46)]
+    Int16 dmPaperSize;
+
+    [System.Runtime.InteropServices.FieldOffset(48)]
+    Int16 dmPaperLength;
+
+    [System.Runtime.InteropServices.FieldOffset(50)]
+    Int16 dmPaperWidth;
+
+    [System.Runtime.InteropServices.FieldOffset(52)]
+    Int16 dmScale;
+
+    [System.Runtime.InteropServices.FieldOffset(54)]
+    Int16 dmCopies;
+
+    [System.Runtime.InteropServices.FieldOffset(56)]
+    Int16 dmDefaultSource;
+
+    [System.Runtime.InteropServices.FieldOffset(58)]
+    Int16 dmPrintQuality;
+
+    [System.Runtime.InteropServices.FieldOffset(44)]
+    public POINTL dmPosition;
+
+    [System.Runtime.InteropServices.FieldOffset(52)]
+    public Int32 dmDisplayOrientation;
+
+    [System.Runtime.InteropServices.FieldOffset(56)]
+    public Int32 dmDisplayFixedOutput;
+
+    [System.Runtime.InteropServices.FieldOffset(60)]
+    public short dmColor;
+
+    [System.Runtime.InteropServices.FieldOffset(62)]
+    public short dmDuplex;
+
+    [System.Runtime.InteropServices.FieldOffset(64)]
+    public short dmYResolution;
+
+    [System.Runtime.InteropServices.FieldOffset(66)]
+    public short dmTTOption;
+
+    [System.Runtime.InteropServices.FieldOffset(68)]
+    public short dmCollate;
+
+    [System.Runtime.InteropServices.FieldOffset(72)]
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHFORMNAME)]
+    public string dmFormName;
+
+    [System.Runtime.InteropServices.FieldOffset(102)]
+    public Int16 dmLogPixels;
+
+    [System.Runtime.InteropServices.FieldOffset(104)]
+    public Int32 dmBitsPerPel;
+
+    [System.Runtime.InteropServices.FieldOffset(108)]
+    public Int32 dmPelsWidth;
+
+    [System.Runtime.InteropServices.FieldOffset(112)]
+    public Int32 dmPelsHeight;
+
+    [System.Runtime.InteropServices.FieldOffset(116)]
+    public Int32 dmDisplayFlags;
+
+    [System.Runtime.InteropServices.FieldOffset(116)]
+    public Int32 dmNup;
+
+    [System.Runtime.InteropServices.FieldOffset(120)]
+    public Int32 dmDisplayFrequency;
+}
+```
+
+Yeah it's a big one, it's fine, we don't need all of these but they should be represented anyways, remember that when you're dealing with **C Structs**, they're essentially memory arranjed in a certain way, so if you don't specify everything, you may get into problems, because it'll fail to calculate the right offsets when fetching data from memory.
+
+Here are the rest of the structures:
+
+```csharp
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+struct DISPLAY_DEVICE {
+	[MarshalAs(UnmanagedType.U4)]
+	public int cb;
+
+	[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+	public string DeviceName;
+
+	[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+	public string DeviceString;
+
+	[MarshalAs(UnmanagedType.U4)]
+	public DisplayDeviceStateFlags StateFlags;
+
+	[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+	public string DeviceID;
+
+	[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+	public string DeviceKey;
+}
+
+[Flags()]
+enum DisplayDeviceStateFlags : int {
+    AttachedToDesktop = 0x1,
+    MultiDriver = 0x2,
+    PrimaryDevice = 0x4,
+    MirroringDriver = 0x8,
+    VGACompatible = 0x10,
+    Removable = 0x20,
+    ModesPruned = 0x8000000,
+    Remote = 0x4000000,
+    Disconnect = 0x2000000
+}
+
+[Flags()]
+enum DisplaySettingsFlags : int {
+    CDS_NONE = 0,
+    CDS_UPDATEREGISTRY = 0x00000001,
+    CDS_TEST = 0x00000002,
+    CDS_FULLSCREEN = 0x00000004,
+    CDS_GLOBAL = 0x00000008,
+    CDS_SET_PRIMARY = 0x00000010,
+    CDS_VIDEOPARAMETERS = 0x00000020,
+    CDS_ENABLE_UNSAFE_MODES = 0x00000100,
+    CDS_DISABLE_UNSAFE_MODES = 0x00000200,
+    CDS_RESET = 0x40000000,
+    CDS_RESET_EX = 0x20000000,
+    CDS_NORESET = 0x10000000
+}
+
+[Flags()]
+enum DM : int {
+	Orientation = 0x00000001,
+	PaperSize = 0x00000002,
+	PaperLength = 0x00000004,
+	PaperWidth = 0x00000008,
+	Scale = 0x00000010,
+	Position = 0x00000020,
+	NUP = 0x00000040,
+	DisplayOrientation = 0x00000080,
+	Copies = 0x00000100,
+	DefaultSource = 0x00000200,
+	PrintQuality = 0x00000400,
+	Color = 0x00000800,
+	Duplex = 0x00001000,
+	YResolution = 0x00002000,
+	TTOption = 0x00004000,
+	Collate = 0x00008000,
+	FormName = 0x00010000,
+	LogPixels = 0x00020000,
+	BitsPerPixel = 0x00040000,
+	PelsWidth = 0x00080000,
+	PelsHeight = 0x00100000,
+	DisplayFlags = 0x00200000,
+	DisplayFrequency = 0x00400000,
+	ICMMethod = 0x00800000,
+	ICMIntent = 0x01000000,
+	MediaType = 0x02000000,
+	DitherType = 0x04000000,
+	PanningWidth = 0x08000000,
+	PanningHeight = 0x10000000,
+	DisplayFixedOutput = 0x20000000
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct POINTL {
+    long x;
+    long y;
+}
+```
+
+This is it for the imports, we can now move forward with actually using those system functions. You now understand why most people refrain from taking advantage of Platform Invokes. They can get insanely tedious but sometimes it's necessary.
+
+# Putting it all together
+
+We're pretty close now, all we need is to write a C# method that uses those imported functions to rotate our screens.
+
+Let's start by seeing if they work, by enumerating all the display devices present on our computer:
+
+```csharp
+public static void Main(string[] args) { 			
+    var displayDevice =  new DISPLAY_DEVICE();
+	displayDevice.cb = Marshal.SizeOf(displayDevice);
+
+	const int maxDevices = 64;
+	for (uint i = 0; i < maxDevices; i++) {
+		if (EnumDisplayDevices(null, i, ref displayDevice, 0)) {
+			Console.WriteLine(
+                $"Device Name: {displayDevice.DeviceName}, Device String: {displayDevice.DeviceString}"
+            );
+		}
+	}
+}
+```
+
+We're iterating over all possible devices and printing some information about them. `EnumDisplayDevices()` will return **false** if the device is not connected.
+
+Running this code, should yield something like:
+
+```
+Device Name: \\.\DISPLAY1, Device String: NVIDIA GeForce RTX 3090 Ti
+Device Name: \\.\DISPLAY2, Device String: NVIDIA GeForce RTX 3090 Ti
+Device Name: \\.\DISPLAY3, Device String: NVIDIA GeForce RTX 3090 Ti
+Device Name: \\.\DISPLAY4, Device String: NVIDIA GeForce RTX 3090 Ti
+```
+
+Getting there, now let's enumerate the settings for one of these devices, I choose "DISPLAY 2". We can achieve this by calling `EnumDisplaySettings()` on the device we want, as such (replace your main code):
+
+```csharp
+var displayDevice =  new DISPLAY_DEVICE();
+displayDevice.cb = Marshal.SizeOf(displayDevice);
+
+var devmode = new DEVMODE();
+
+NativeMethods.EnumDisplayDevices(null, 0, ref displayDevice, 0);
+NativeMethods.EnumDisplaySettings(
+	displayDevice.DeviceName, NativeMethods.ENUM_CURRENT_SETTINGS, ref devmode
+);
+
+Console.WriteLine(JsonConvert.SerializeObject(devmode));
+```
+
+Now, we're just fetching the device, which in my case I know is the "DISPLAY 2" (index 1). We then call `EnumDisplaySettings()` on that device. A quick tip when we're still exploring these things is to just serialize the whole object we want to read as **JSON**, making it easier to see what's inside. Running this code yields:
+
+```
+{
+  "dmDeviceName": "CDD",
+  "dmSpecVersion": 1025,
+  "dmDriverVersion": 1025,
+  "dmSize": 124,
+  "dmDriverExtra": 0,
+  "dmFields": 544997536,
+  "dmPosition": {},
+  "dmDisplayOrientation": 0,
+  "dmDisplayFixedOutput": 0,
+  "dmColor": 0,
+  "dmDuplex": 0,
+  "dmYResolution": 0,
+  "dmTTOption": 0,
+  "dmCollate": 0,
+  "dmFormName": "",
+  "dmLogPixels": 0,
+  "dmBitsPerPel": 32,
+  "dmPelsWidth": 1920,
+  "dmPelsHeight": 1080,
+  "dmDisplayFlags": 0,
+  "dmNup": 0,
+  "dmDisplayFrequency": 240
+}
+```
+
+Looking at the **DEVMODE** populated struct above, we can see the resolution **1920x1080** and also, importantly, the orientation, set in **dmDisplayOrientation**.
+
+Ok, we now know how to get the current settings of any display we want, but how can we change them in order to rotate it? Well, if you look at the [official documentation](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-devmodea) for the **DEVMODE** struct, you'll see that the `dmDisplayOrientation` member can be one of the following values:
+
+- **DMDO_DEFAULT (0)**: The display orientation is the natural orientation of the display device; it should be used as the default.
+- **DMDO_90 (1)**: The display orientation is rotated 90 degrees (measured clockwise) from DMDO_DEFAULT.
+- **DMDO_180 (2)**: The display orientation is rotated 180 degrees (measured clockwise) from DMDO_DEFAULT.
+- **DMDO_270 (3)**: The display orientation is rotated 270 degrees (measured clockwise) from DMDO_DEFAULT.
+
+With this knowledge, we can easily set an enum or some constants to help us:
+
+```csharp
+public enum DisplayOrientation {
+    DEG0 = 0,
+    DEG90 = 1,
+    DEG180 = 2,
+    DEG270 = 3
+}
+```
+
+There's one more important thing. If you visualize what happens when you turn your screen into portrait mode, you'll notice that the resolution parts shift, that is, on a 1080p screen, it'll become 1080x1920 instead of 1920x1080. Because of this, we need to make sure that, when the requested orientation asks for it, we update the `dmPelsHeight` and `dmPelsWidth`. The code for this is as easy as swapping two values, under a conditional that asks "Is the orientation 90º or 270º from the basis?" If it is, we swap:
+
+```csharp
+var orientation = DisplayOrientation.DEG0; // example orientation
+
+if ((devmode.dmDisplayOrientation + (int) orientation) % 2 == 1) {
+    var tmp = devmode.dmPelsHeight;
+    devmode.dmPelsHeight = devmode.dmPelsWidth;
+    devmode.dmPelsWidth = tmp;
+}
+```
+
+What's this condition? Well, this is just a quick and dirty way to find out if we need to change the resolution or not. I won't go into detail here but just follow the following logic.
+
+Imagine we start **0 degress**. We need to swap resolution sides if we rotate **90 or 270 degrees**.
+So that if statement would look like:
+
+$mod(0 + 1; 2) = 1\\$
+$mod(0 + 3; 2) = 1\\$
+$mod(0 + 2; 2) = 0\\$
+$mod(0 + 0; 2) = 0$
+
+I won't botter you with the rest, hopefully this is clear.
+
+Now, we can finally write our `Rotate()` method:
+
+```csharp
+private static bool Rotate(uint displayNumber, DisplayOrientation orientation) {
+	var displayDevice =  new DISPLAY_DEVICE();
+	displayDevice.cb = Marshal.SizeOf(displayDevice);
+
+	var devmode = new DEVMODE();
+
+	NativeMethods.EnumDisplayDevices(null, displayNumber - 1, ref displayDevice, 0);
+	NativeMethods.EnumDisplaySettings(
+		displayDevice.DeviceName, NativeMethods.ENUM_CURRENT_SETTINGS, ref devmode
+	);
+	
+	if ((devmode.dmDisplayOrientation + (int) orientation) % 2 == 1) {
+		var tmp = devmode.dmPelsHeight;
+		devmode.dmPelsHeight = devmode.dmPelsWidth;
+		devmode.dmPelsWidth = tmp;
+	}	
+
+    devmode.dmDisplayOrientation = (int) orientation;
+	
+	var ret = NativeMethods.ChangeDisplaySettingsEx(
+		displayDevice.DeviceName,
+		ref devmode,
+		IntPtr.Zero,
+		DisplaySettingsFlags.CDS_UPDATEREGISTRY,
+		IntPtr.Zero
+	);
+	
+	return ret == 0;
+}
+```
+
+Call this like (using display 2 here):
+
+```csharp
+Rotate(2, DisplayOrientation.DEG180);
+```
+
+This is it, it should be working! I would advise trying this on a second monitor just so you don't have to break your neck testing this.
+
+You can find the complete code in [this gist](https://gist.github.com/rezzmk/4f186a0260f016af211331f975372690).
+
+**Thank you for reading, bye.**
