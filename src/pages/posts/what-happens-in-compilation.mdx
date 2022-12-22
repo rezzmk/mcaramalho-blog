@@ -1,0 +1,318 @@
+---
+layout: "@/layouts/BlogPost"
+title: What happens when you compile a program?
+publishDate: 12 December 2022
+description: A primer on the different processes that happen when you compile a program
+categories: ["os", "programming", "assembly", "c", "lowlevel"]
+tags: ["os", "programming", "assembly", "c", "lowlevel"]
+seoMetaDescription: 'A primer on the different processes that happen when you compile a program'
+---
+
+Hi, in this post I'll go through what happens when you compile a program. I won't go super low-level here, but it's going to involve a little bit of C, Assembly, and some very basic linux tooling.
+
+I'll do this with Linux in mind, but the same ideas can be transposed to how it works in Windows.
+
+# Compilation?
+
+Ok, the first step here is to actually understand what compiling a program means.
+
+Computers don't understand code the way we write it; at a deep level, it's all about electrical signals and flip flops, however, we can go one layer above this and understand that this language can be represented by a series of 0s and 1s, or in other words, **binary**.
+
+For this series of 0s and 1s, that the computer understands, we call machine code. As the name implies, this is not something humans are able to easily read, except a few wizards that started doing it when dinosaurs were still around.
+
+So, how is it possible that we can write code in a human readable form that's then run by the computer? **Compilation** is the key here. This is essentially the process of converting our hopefully bug-free code into something the machine can understand, i.e.; machine code, or as commonly referred to in the streets, "the binary".
+
+Now, compilation is normally not as simple as taking some C (or other languages) code directly into 0s and 1s. We could do this, but it would be incredibly difficult to maintain the level of progress we have today. So, compiling code it's actually a multi-step process, which I'll go through in this post.
+
+Let's take advantage of a good compiler that comes pre installed on pretty much all linux distributions, **gcc**, which stands for "The GNU Compiler". By the way, GNU is an actual operating system, based on UNIX, just like Linux!
+
+### Compiling C code
+
+Take this code as an example:
+
+```c
+#include <stdio.h>
+
+#define FORMAT "%s"
+#define PRINTSTRING "Hello World, how's it going?\n"
+
+int main() {
+    printf(FORMAT, PRINTSTRING);
+}
+```
+
+The code above will just print the string "Hello World, how's it going?" to the console.
+
+The line
+
+```c
+#include <stdio.h>
+```
+
+Just means "I want you to include the code contained in this library, since I'll use it in my program", in this case, the `printf()` function comes from here.
+
+These lines
+
+```c
+#define FORMAT "%s"
+#define PRINTSTRING "Hello World, how's it going?\n"
+```
+
+Are called macros. The important thing is to understand that **they are not actual code that will be run**, but rather things that allow programmers to have a little bit more flexibility when coding. In this case, we're defining a format and the string we want to print as macros. I'll explain why I put those there soon.
+
+The rest of the code
+
+```c
+int main() {
+    printf(FORMAT, PRINTSTRING);
+}
+```
+
+is just a normal print to the console. Every language out there has this, so even if you don't know **C**, you can understand the idea (I hope).
+
+If we want to compile this code, all we have to do is (assuming file name **main.c**):
+
+```bash
+$ gcc main.c -o main
+```
+```
+$ ./main
+
+Hello World, how's it going?
+```
+
+That's cool, but if you're reading this post I bet you've already done similar things and this doesn't impress you at all. So let's get deeper in the next sections.
+
+### Compilation Steps
+
+When you run that `gcc main.c -o main` line of code, what happens inside is actually extremely complicated and it involves multiple steps. 
+
+The high level view is as follows:
+
+1) Your **.c** files, alongside any headers, are fed to something called a **Preprocessor**
+2) The output of the **Preprocessor** is passed through to the compiler, which will produce assembly code
+3) The output of the compiler, that is, the assembly code, is passed to something called an **Assembler**. Here, the output will be one or more object files. These are binaries with executable code.
+4) Because we may have multiple object files and/or some external dependencies, these are passed to a **Linker**
+5) After linking, you got your final executable!
+
+#### Preprocessor
+
+// input image for this
+
+In this step, you feed the Preprocessor **.c** code and the output will still be **.c** code. So, what changes? Well, remember these lines?
+
+```c
+#include <stdio.h>
+
+#define FORMAT "%s"
+#define PRINTSTRING "Hello World, how's it going?\n"
+```
+
+The preprocessor will **expand** these into the output. Basically, it will insert all the code in the `stdio.h` header file into the output, as well as replacing every single usage of `FORMAT` and `PRINTSTRING` by `"%s"` and `"Hello World, how's it going?\n"`, respectively.
+
+We can see this in action using **GCC**, which is why I chose it! I urge you to RTFM with `man gcc`, but all you have to do here is pass the **-E** flag to the compiler, alongside an optional **-P** so the output isn't super verbose.
+
+```bash
+$ gcc -E -P main.c
+```
+
+Running the line above will print a lot of code to the console, it should look something like:
+
+```c
+...
+...
+extern int getchar_unlocked (void);
+extern int fgetc_unlocked (FILE *__stream);
+extern int fputc (int __c, FILE *__stream);
+extern int putc (int __c, FILE *__stream);
+extern int putchar (int __c);
+...
+...
+
+int main() {
+    printf("%s", "Hello World, how's it going?\n");
+}
+```
+
+Basically, on the top of the file you will find a lof of function signatures and type definitions. Those are all from the `stdio.h` header file. In fact, you can easily check this by looking into the actual `stdio.h` file on your machine. If you're using linux (which you should), you can find it at **/usr/include/stdio.h**.
+
+Next, remember those macros I mentioned? Look at the `printf()` statement after the **Preprocessor** did its thing and compare it to before. It replaced our `FORMAT` and `PRINTSTRING` with the right stuff, as expected.
+
+So, now you should have a grasp of what preprocessing is, although it does much more, such as taking care of your "preprocessor conditionals", etc... you can read more about this [here](https://www.tutorialspoint.com/cprogramming/c_preprocessors.htm).
+
+### Compilation
+
+In this step the **Compiler** will take the output of the **Preprocessor** and turn it into assembly code.
+Please note that although we call **GCC** "The Compiler", there's an actual step in there that's techically called **compilation**. I know it's confusing but it is what it is.
+
+We can tell the compiler to give us our assembly code, to do this, just run **GCC** with the **-S** flag, as such:
+
+```bash
+$ gcc -S -masm=intel main.c
+```
+
+The `-masm=intel` means we want the output to use the **Intel** syntax, as opposed to **AT&T**, for example. This syntax is the simplest to read in my opinion, therefore I'm using it.
+
+After running the command above, a new file should emerge, called `main.s`. the **.s** means it's an assembly file, by convention (remember, extensions don't mean s**t in linux, it's all files).
+
+The output of which is:
+
+```asm
+        .file   "main.c"
+        .intel_syntax noprefix
+        .text
+        .section        .rodata
+.LC0:
+        .string "Hello World, how's it going?"
+        .text
+        .globl  main
+        .type   main, @function
+main:
+.LFB0:
+        .cfi_startproc
+        endbr64
+        push    rbp
+        .cfi_def_cfa_offset 16
+        .cfi_offset 6, -16
+        mov     rbp, rsp
+        .cfi_def_cfa_register 6
+        lea     rdi, .LC0[rip]
+        call    puts@PLT
+        mov     eax, 0
+        pop     rbp
+        .cfi_def_cfa 7, 8
+        ret
+        .cfi_endproc
+.LFE0:
+        .size   main, .-main
+        .ident  "GCC: (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0"
+        .section        .note.GNU-stack,"",@progbits
+        .section        .note.gnu.property,"a"
+        .align 8
+        .long    1f - 0f
+        .long    4f - 1f
+        .long    5
+0:
+        .string  "GNU"
+1:
+        .align 8
+        .long    0xc0000002
+        .long    3f - 2f
+2:
+        .long    0x3
+3:
+        .align 8
+4:
+```
+
+Now we're talking! There's quite a lot to unpack there. For a very simple primer on assembly you can read a previous blog post of mine on how to write a file like a maniac. There's a section there dedicated to assembly that may be useful. You can find it [here](https://mcaramalho.com/posts/reading-files-1337/#assembly).
+
+The first two lines
+
+```asm
+.file   "main.c"
+.intel_syntax noprefix
+```
+
+are kinda useless to us. The `.file` one is used by the compiler to know the original source file name, which is used by debuggers and the `.intel_syntax noprefix` makes it so registers don't require the '%' prefix.
+
+I'll briefly go over the rest now, picking some blocks and explaining them (the most relevant)
+
+```asm
+        .section        .rodata
+.LC0:
+        .string "Hello World, how's it going?"
+```
+
+This one is where our constants will reside. The `.section .rodata` stands for "Section Read Only Data", which is where you have data that cannot be changed in runtime (otherwise an exception happens).
+
+The `.LC0` is a compiler given label, and it's where we're storing said data, in this case, a `.string` with our "Hello ..." string.
+
+Next:
+
+```asm
+main:
+.LFB0:
+        .cfi_startproc
+        endbr64
+        push    rbp
+        .cfi_def_cfa_offset 16
+        .cfi_offset 6, -16
+        mov     rbp, rsp
+        .cfi_def_cfa_register 6
+        lea     rdi, .LC0[rip]
+        call    puts@PLT
+        mov     eax, 0
+        pop     rbp
+        .cfi_def_cfa 7, 8
+        ret
+        .cfi_endproc
+```
+
+This is the actual code we wrote in C. We see the `main:` label specifying the program's entry point and the rest of the code below. Special attention to that `call puts@PLT` call that's used with `printf()`. Ignore the **@PLT** part for now, I'll get to it soon.
+
+The rest of the code can be ignored at this stage, but by all means, try to understand it if you want, although that's out of scope for this post.
+
+### Assembler
+
+At this stage, after we have our assembly code, we're read to pass it through the **Assembler**, which will convert that into machine code. The reason we have this step and don't go straight from **C** to **Machine Code** is because assemblers are incredibly difficult, and although converting **C** to **Assembly** is already a daunting task, it makes it easier to have this separated. Why? You may ask... Well, let's say you're creating a new programming language, like **Go**, or **Rust**, or **C++**, all you have to do is to write the means to convert that code into **Assembly**, which is difficult but doable, since assembly is "human readable"; when you'd use an assembler to do the rest of the heavy lifting for you.
+
+Remember we still have one step after this, the **The Linker**, so that means we can still make the compiler stop at an early stage and spit out what we need. Call **GCC** like this:
+
+```bash
+$ gcc main.c -c
+```
+
+This will generate a new file called **main.o**, where the **.o** stands for "object file". If you try to read this file you won't be able to, as it's already in a non-readable form (unless you're a machine). You can read its bytes if you're curious, by doing `xxd -l 256 main.o`, which will yield the first 256 bytes of the file as hexadecimal output, as such:
+
+```
+$ xxd -l 256 main.o
+
+00000000: 7f45 4c46 0201 0100 0000 0000 0000 0000  .ELF............
+00000010: 0100 3e00 0100 0000 0000 0000 0000 0000  ..>.............
+00000020: 0000 0000 0000 0000 2003 0000 0000 0000  ........ .......
+00000030: 0000 0000 4000 0000 0000 4000 0e00 0d00  ....@.....@.....
+00000040: f30f 1efa 5548 89e5 488d 3d00 0000 00e8  ....UH..H.=.....
+00000050: 0000 0000 b800 0000 005d c348 656c 6c6f  .........].Hello
+00000060: 2057 6f72 6c64 2c20 686f 7727 7320 6974   World, how's it
+00000070: 2067 6f69 6e67 3f00 0047 4343 3a20 2855   going?..GCC: (U
+00000080: 6275 6e74 7520 392e 342e 302d 3175 6275  buntu 9.4.0-1ubu
+00000090: 6e74 7531 7e32 302e 3034 2e31 2920 392e  ntu1~20.04.1) 9.
+000000a0: 342e 3000 0000 0000 0400 0000 1000 0000  4.0.............
+000000b0: 0500 0000 474e 5500 0200 00c0 0400 0000  ....GNU.........
+000000c0: 0300 0000 0000 0000 1400 0000 0000 0000  ................
+000000d0: 017a 5200 0178 1001 1b0c 0708 9001 0000  .zR..x..........
+000000e0: 1c00 0000 1c00 0000 0000 0000 1b00 0000  ................
+000000f0: 0045 0e10 8602 430d 0652 0c07 0800 0000  .E....C..R......
+```
+
+You can see clearly see that our "Hello World" string is there somehow, which makes sense, but the rest is a bunch of gibberish, impossible to read like this.
+
+When you assemble a file like this, you're creating an **ELF** file, which stands for "Executable and Linkable Format". This is the standard linux format for executables, as opposed to the **PE-Format** of Windows. You can kinda of see that at the top of the `xxd` output, where there's a string specifying "ELF" as the format, but that's not enough. If you want to make sure, you can run the `file` tool, which you should have on any linux distribution, and see what it tells you:
+
+```bash
+$ file main.o
+
+main.o: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped
+```
+
+Ok, so this tells us that the **Assembler** created an ELF file, with a 64-bit architecture. The **LSB** means "Least Significant Byte", which is just the way numbers will be stored in the program. The "not stripped" means the symbols are still intact, which means our function names, etc... were kept from our code to this point. This helps a LOT when reverse engineering binaries or while doing any kind of static analysis of software. 
+
+// TODO: Finalize this one
+Finally, you'll see the word "relocatable". This means this object doesn't 
+
+### Linker
+
+Now's the final part, the grand finale where you turn your code into something the world can execute. As this is the last part, we can just run `gcc main.c -o main` to complete everything and give us the final result.
+
+So, let's compile it and see what kind of file we actually got:
+
+```
+$ gcc main.c -o main
+$ file main
+
+main: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=0dede4223b251bc42cd38d0e83891f06443a0d43, for GNU/Linux 3.2.0, not stripped
+```
+
+Ok, now we have new things to know about. "dynamically linked" is related to the fact we're linking with shared libraries, that are usable by everybody... // TODO finish this
+
