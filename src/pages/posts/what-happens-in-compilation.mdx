@@ -1,16 +1,20 @@
 ---
 layout: "@/layouts/BlogPost"
 title: What happens when you compile a program?
-publishDate: 12 December 2022
+publishDate: 13 January 2023
 description: A primer on the different processes that happen when you compile a program
 categories: ["os", "programming", "assembly", "c", "lowlevel"]
 tags: ["os", "programming", "assembly", "c", "lowlevel"]
 seoMetaDescription: 'A primer on the different processes that happen when you compile a program'
 ---
 
-Hi, in this post I'll go through what happens when you compile a program. I won't go super low-level here, but it's going to involve a little bit of C, Assembly, and some very basic linux tooling.
+Hi, in this post I'll go through what happens when you compile a program. It's going to involve a little bit of C, Assembly, and some very basic linux tooling. The main idea is that you get out of here with some deeper understanding of what happens behind the scenes.
+
+This type of knowledge is not very useful for most people, but if you like to know how things work, I think you'll enjoy at least some of things I'll expose here.
 
 I'll do this with Linux in mind, but the same ideas can be transposed to how it works in Windows.
+
+I have taken a lot of inspiration from the **Practical Binary Analysis** book by **No Starch Press**, written by Dennis Andriesse, mainly on how to structure these ideas in a concise way. I highly recommend the book if you want to go deep into binary analysis, but keep in mind, it's not a book you'll go through in a weekend, it takes years to master everything in there, but that's besides the point of this post. Let's go!
 
 # Compilation?
 
@@ -18,11 +22,11 @@ Ok, the first step here is to actually understand what compiling a program means
 
 Computers don't understand code the way we write it; at a deep level, it's all about electrical signals and flip flops, however, we can go one layer above this and understand that this language can be represented by a series of 0s and 1s, or in other words, **binary**.
 
-For this series of 0s and 1s, that the computer understands, we call machine code. As the name implies, this is not something humans are able to easily read, except a few wizards that started doing it when dinosaurs were still around.
+To these series of 0s and 1s that the computer understands, we call machine code. As the name implies, this is not something humans are able to easily read, except a few wizards that started doing it when dinosaurs were still around.
 
-So, how is it possible that we can write code in a human readable form that's then run by the computer? **Compilation** is the key here. This is essentially the process of converting our hopefully bug-free code into something the machine can understand, i.e.; machine code, or as commonly referred to in the streets, "the binary".
+So, how is it possible that we can write code in a human readable form so that it can be run by the computer? **Compilation** is the key here. This is essentially the process of converting our hopefully bug-free code into something the machine can understand, i.e.; machine code, or as commonly referred to in the streets, "the binary".
 
-Now, compilation is normally not as simple as taking some C (or other languages) code directly into 0s and 1s. We could do this, but it would be incredibly difficult to maintain the level of progress we have today. So, compiling code it's actually a multi-step process, which I'll go through in this post.
+Now, compilation is normally not as simple as taking some C (or other languages) code directly into 0s and 1s. We could do this, but it would be incredibly difficult to maintain the level of progress we have today, because we would have to create very complicated software for every single language out there, which is really not feasible. So, compiling code is actually a multi-step process, which I'll go through in this post.
 
 Let's take advantage of a good compiler that comes pre installed on pretty much all linux distributions, **gcc**, which stands for "The GNU Compiler". By the way, GNU is an actual operating system, based on UNIX, just like Linux!
 
@@ -49,7 +53,7 @@ The line
 #include <stdio.h>
 ```
 
-Just means "I want you to include the code contained in this library, since I'll use it in my program", in this case, the `printf()` function comes from here.
+just means "I want you to include the code contained in this library, since I'll use it in my program", in this case, the `printf()` function comes from here.
 
 These lines
 
@@ -70,7 +74,7 @@ int main() {
 
 is just a normal print to the console. Every language out there has this, so even if you don't know **C**, you can understand the idea (I hope).
 
-If we want to compile this code, all we have to do is (assuming file name **main.c**):
+If we want to compile this code, all we have to do is (assuming the file name is **main.c**):
 
 ```bash
 $ gcc main.c -o main
@@ -81,7 +85,7 @@ $ ./main
 Hello World, how's it going?
 ```
 
-That's cool, but if you're reading this post I bet you've already done similar things and this doesn't impress you at all. So let's get deeper in the next sections.
+That's cool, but if you're reading this post I bet you've already done similar things and this doesn't impress you at all. So let's get deeper in the next sections, to see what's happening under the hood.
 
 ### Compilation Steps
 
@@ -91,13 +95,15 @@ The high level view is as follows:
 
 1) Your **.c** files, alongside any headers, are fed to something called a **Preprocessor**
 2) The output of the **Preprocessor** is passed through to the compiler, which will produce assembly code
-3) The output of the compiler, that is, the assembly code, is passed to something called an **Assembler**. Here, the output will be one or more object files. These are binaries with executable code.
+3) The output of the compiler, that is, the assembly code, is passed to something called an **Assembler**. Here, the output will be one or more object files. These are binaries with executable code (not quite, but close enough).
 4) Because we may have multiple object files and/or some external dependencies, these are passed to a **Linker**
 5) After linking, you got your final executable!
 
-#### Preprocessor
+As an image is worth more than a `0b1111101000` words, below's a diagram for this process.
 
-// input image for this
+![compileprocess](/images/gcc-compile.png)
+
+#### Preprocessor
 
 In this step, you feed the Preprocessor **.c** code and the output will still be **.c** code. So, what changes? Well, remember these lines?
 
@@ -151,11 +157,11 @@ We can tell the compiler to give us our assembly code, to do this, just run **GC
 $ gcc -S -masm=intel main.c
 ```
 
-The `-masm=intel` means we want the output to use the **Intel** syntax, as opposed to **AT&T**, for example. This syntax is the simplest to read in my opinion, therefore I'm using it.
+The `-masm=intel` means we want the output to use the **Intel** syntax, as opposed to **AT&T**, for example. This syntax is the simplest to read in my opinion, so I'm using it to illustrate this process.
 
-After running the command above, a new file should emerge, called `main.s`. the **.s** means it's an assembly file, by convention (remember, extensions don't mean s**t in linux, it's all files).
+After running the command above, a new file should emerge, called `main.s`. the **.s** means it's an assembly file, by convention (remember, extensions don't mean much in linux, it's all files).
 
-The output of which is:
+The output of **main.s** is:
 
 ```asm
         .file   "main.c"
@@ -214,7 +220,7 @@ The first two lines
 .intel_syntax noprefix
 ```
 
-are kinda useless to us. The `.file` one is used by the compiler to know the original source file name, which is used by debuggers and the `.intel_syntax noprefix` makes it so registers don't require the '%' prefix.
+are kinda useless to us. The `.file` one is used by the compiler to know the original source file name, which is used by debuggers and the `.intel_syntax noprefix` makes it so the registers don't require the '%' prefix.
 
 I'll briefly go over the rest now, picking some blocks and explaining them (the most relevant)
 
@@ -226,7 +232,7 @@ I'll briefly go over the rest now, picking some blocks and explaining them (the 
 
 This one is where our constants will reside. The `.section .rodata` stands for "Section Read Only Data", which is where you have data that cannot be changed in runtime (otherwise an exception happens).
 
-The `.LC0` is a compiler given label, and it's where we're storing said data, in this case, a `.string` with our "Hello ..." string.
+The `.LC0` is a compiler given label, and it's where we're storing said data, in this case, a `.string` with our "Hello ..." value.
 
 Next:
 
@@ -255,15 +261,15 @@ The rest of the code can be ignored at this stage, but by all means, try to unde
 
 ### Assembler
 
-At this stage, after we have our assembly code, we're read to pass it through the **Assembler**, which will convert that into machine code. The reason we have this step and don't go straight from **C** to **Machine Code** is because assemblers are incredibly difficult, and although converting **C** to **Assembly** is already a daunting task, it makes it easier to have this separated. Why? You may ask... Well, let's say you're creating a new programming language, like **Go**, or **Rust**, or **C++**, all you have to do is to write the means to convert that code into **Assembly**, which is difficult but doable, since assembly is "human readable"; when you'd use an assembler to do the rest of the heavy lifting for you.
+At this point, after we have our assembly code, we're ready to pass it through the **Assembler**, which will convert that into machine code. The reason we have this step and don't go straight from **C** to **Machine Code** is because assemblers are incredibly difficult, and although converting **C** to **Assembly** is already a daunting task, it makes it easier to have this separated. Why? You may ask... Well, let's say you're creating a new programming language, like **Go**, or **Rust**, or **C++**, all you have to do is to write the means to convert that code into **Assembly**, which is difficult but doable, since assembly is "human readable"; then you'd use an assembler to do the rest of the heavy lifting for you.
 
-Remember we still have one step after this, the **The Linker**, so that means we can still make the compiler stop at an early stage and spit out what we need. Call **GCC** like this:
+Remember we still have one step after this, the **Linker**, so that means we can still make the compiler stop at an early stage and spit out what we need. Call **GCC** like this:
 
 ```bash
 $ gcc main.c -c
 ```
 
-This will generate a new file called **main.o**, where the **.o** stands for "object file". If you try to read this file you won't be able to, as it's already in a non-readable form (unless you're a machine). You can read its bytes if you're curious, by doing `xxd -l 256 main.o`, which will yield the first 256 bytes of the file as hexadecimal output, as such:
+This will generate a new file called **main.o**, where the **.o** stands for "object file". If you try to read this file you won't be able to, as it's already in a non-readable form (unless you're a machine). You can read its bytes if you're curious, by doing `xxd -l 256 main.o` (on windows, I like **HxD** to read binaries), which will yield the first 256 bytes of the file as hexadecimal output, as such:
 
 ```
 $ xxd -l 256 main.o
@@ -286,9 +292,9 @@ $ xxd -l 256 main.o
 000000f0: 0045 0e10 8602 430d 0652 0c07 0800 0000  .E....C..R......
 ```
 
-You can see clearly see that our "Hello World" string is there somehow, which makes sense, but the rest is a bunch of gibberish, impossible to read like this.
+You can clearly see that our "Hello World" string is there somehow, which makes sense, but the rest is a bunch of gibberish, impossible to read like this.
 
-When you assemble a file like this, you're creating an **ELF** file, which stands for "Executable and Linkable Format". This is the standard linux format for executables, as opposed to the **PE-Format** of Windows. You can kinda of see that at the top of the `xxd` output, where there's a string specifying "ELF" as the format, but that's not enough. If you want to make sure, you can run the `file` tool, which you should have on any linux distribution, and see what it tells you:
+When you assemble a file like we just did, you're creating an **ELF** file, which stands for "Executable and Linkable Format". This is the standard linux format for executables, as opposed to the **PE-Format** of Windows. You can see that at the top of the `xxd` output there's a string specifying "ELF" as the format, but that's not enough. If you want to make sure, you can run the `file` tool, which you should have on any linux distribution, and see what it tells you:
 
 ```bash
 $ file main.o
@@ -296,10 +302,11 @@ $ file main.o
 main.o: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), not stripped
 ```
 
-Ok, so this tells us that the **Assembler** created an ELF file, with a 64-bit architecture. The **LSB** means "Least Significant Byte", which is just the way numbers will be stored in the program. The "not stripped" means the symbols are still intact, which means our function names, etc... were kept from our code to this point. This helps a LOT when reverse engineering binaries or while doing any kind of static analysis of software. 
+Ok, so this tells us that the **Assembler** created an ELF file, with a 64-bit architecture. The **LSB** means "Least Significant Byte", which is just the way numbers will be stored in the program. I'll explain the "not stripped" part in the next section.
 
-// TODO: Finalize this one
-Finally, you'll see the word "relocatable". This means this object doesn't 
+Finally, you'll see the word **"relocatable"**. When you run your code, those instructions will be stored in memory, this directive just means that you're dealing with something that can be relocated to any memory address and everything will remain within context, i.e, you're not breaking any assumptions in the code. These **relocatable** files tell you you're dealing with object files that aren't executable per si. Why are these **relocatable** files, well, relocatable? It's quite simple, when you're assembling things into object files, they are all done independently, which means that, if you have a call from the code present in one object file, to a function (or other things) of another object file, it has no way of knowing where that address is in memory, therefore, at this stage, these files are all marked as **relocatable**.
+
+The idea here is that at the next stage, we can link all of these files together to build something that's executable. This includes having all the addresses ready, and so on...
 
 ### Linker
 
@@ -314,5 +321,145 @@ $ file main
 main: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=0dede4223b251bc42cd38d0e83891f06443a0d43, for GNU/Linux 3.2.0, not stripped
 ```
 
-Ok, now we have new things to know about. "dynamically linked" is related to the fact we're linking with shared libraries, that are usable by everybody... // TODO finish this
+Ok, now we have new things to know about. "dynamically linked" is related to the fact we're linking with shared libraries that are usable by everybody. Remember that assembly line we saw above with `call puts@PLT`? Well, that's related to this stage and what I've mentioned about the object files being **relocatable**. **PLT** stands for **Procedure Linkage Table** and all it means is that, when linking, these `@PLT` instructions will be replaced with the actual addresses, because at that point, our object files wouldn't know exactly where to go for, in this case, for the `puts()` function from `stdin.h`.
 
+**TLDR on the **PLT** thing: It's there as a stub, so that when the linker gets the object files, it replaces those entries with the right addresses.**
+
+The `interpreter /lib64/ld-linux-x86-64.so.2` just tells us what dynamic linker is used to resolve the shared library code addresses. Remember, this is code that's accessible by everything and everyone on the operating system. 
+
+Finally, you'll see that "not stripped" part as well. This is one that's very interesting to anyone that wants to learn reverse engineering. When you don't have your executables stripped, all the symbol information will remain intact, which means variable and function names are kept!! This is a god send when you're trying to figure out what something does, let me illustrate.
+
+Run **xxd** on the executable first, just to see how useless it looks :)
+
+```bash
+$ xxd -l 256 main
+
+00000000: 7f45 4c46 0201 0100 0000 0000 0000 0000  .ELF............
+00000010: 0300 3e00 0100 0000 6010 0000 0000 0000  ..>.....`.......
+00000020: 4000 0000 0000 0000 7839 0000 0000 0000  @.......x9......
+00000030: 0000 0000 4000 3800 0d00 4000 1f00 1e00  ....@.8...@.....
+00000040: 0600 0000 0400 0000 4000 0000 0000 0000  ........@.......
+00000050: 4000 0000 0000 0000 4000 0000 0000 0000  @.......@.......
+00000060: d802 0000 0000 0000 d802 0000 0000 0000  ................
+00000070: 0800 0000 0000 0000 0300 0000 0400 0000  ................
+00000080: 1803 0000 0000 0000 1803 0000 0000 0000  ................
+00000090: 1803 0000 0000 0000 1c00 0000 0000 0000  ................
+000000a0: 1c00 0000 0000 0000 0100 0000 0000 0000  ................
+000000b0: 0100 0000 0400 0000 0000 0000 0000 0000  ................
+000000c0: 0000 0000 0000 0000 0000 0000 0000 0000  ................
+000000d0: f805 0000 0000 0000 f805 0000 0000 0000  ................
+000000e0: 0010 0000 0000 0000 0100 0000 0500 0000  ................
+000000f0: 0010 0000 0000 0000 0010 0000 0000 0000  ................
+```
+
+Well, it's an ELF file allright, but I personally can't figure out anything about what it does from here.
+
+Let's introduce a new tool, called **readelf**. This tool essentially parses **ELF** files and allows you to get certain information in a structured way. Let's run this with the **--syms** argument to see the symbols of our executable:
+
+```bash
+$ readelf --syms main
+
+Symbol table '.dynsym' contains 7 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     1: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_deregisterTMCloneTab
+     2: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND puts@GLIBC_2.2.5 (2)
+     3: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND __libc_start_main@GLIBC_2.2.5 (2)
+     4: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND __gmon_start__
+     5: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_registerTMCloneTable
+     6: 0000000000000000     0 FUNC    WEAK   DEFAULT  UND __cxa_finalize@GLIBC_2.2.5 (2)
+
+Symbol table '.symtab' contains 65 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     1: 0000000000000318     0 SECTION LOCAL  DEFAULT    1
+     2: 0000000000000338     0 SECTION LOCAL  DEFAULT    2
+     ...
+     ...
+    27: 0000000000000000     0 SECTION LOCAL  DEFAULT   27
+    28: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS crtstuff.c
+    29: 0000000000001090     0 FUNC    LOCAL  DEFAULT   16 deregister_tm_clones
+    30: 00000000000010c0     0 FUNC    LOCAL  DEFAULT   16 register_tm_clones
+    31: 0000000000001100     0 FUNC    LOCAL  DEFAULT   16 __do_global_dtors_aux
+    32: 0000000000004010     1 OBJECT  LOCAL  DEFAULT   26 completed.8061
+    33: 0000000000003dc0     0 OBJECT  LOCAL  DEFAULT   22 __do_global_dtors_aux_fin
+    34: 0000000000001140     0 FUNC    LOCAL  DEFAULT   16 frame_dummy
+    35: 0000000000003db8     0 OBJECT  LOCAL  DEFAULT   21 __frame_dummy_init_array_
+    36: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS main.c
+    37: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS crtstuff.c
+    38: 000000000000216c     0 OBJECT  LOCAL  DEFAULT   20 __FRAME_END__
+    39: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS
+    40: 0000000000003dc0     0 NOTYPE  LOCAL  DEFAULT   21 __init_array_end
+    41: 0000000000003dc8     0 OBJECT  LOCAL  DEFAULT   23 _DYNAMIC
+    42: 0000000000003db8     0 NOTYPE  LOCAL  DEFAULT   21 __init_array_start
+    43: 0000000000002024     0 NOTYPE  LOCAL  DEFAULT   19 __GNU_EH_FRAME_HDR
+    44: 0000000000003fb8     0 OBJECT  LOCAL  DEFAULT   24 _GLOBAL_OFFSET_TABLE_
+    45: 0000000000001000     0 FUNC    LOCAL  DEFAULT   12 _init
+    46: 00000000000011e0     5 FUNC    GLOBAL DEFAULT   16 __libc_csu_fini
+    47: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_deregisterTMCloneTab
+    48: 0000000000004000     0 NOTYPE  WEAK   DEFAULT   25 data_start
+    49: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND puts@@GLIBC_2.2.5
+    50: 0000000000004010     0 NOTYPE  GLOBAL DEFAULT   25 _edata
+    51: 00000000000011e8     0 FUNC    GLOBAL HIDDEN    17 _fini
+    52: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND __libc_start_main@@GLIBC_
+    53: 0000000000004000     0 NOTYPE  GLOBAL DEFAULT   25 __data_start
+    54: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND __gmon_start__
+    55: 0000000000004008     0 OBJECT  GLOBAL HIDDEN    25 __dso_handle
+    56: 0000000000002000     4 OBJECT  GLOBAL DEFAULT   18 _IO_stdin_used
+    57: 0000000000001170   101 FUNC    GLOBAL DEFAULT   16 __libc_csu_init
+    58: 0000000000004018     0 NOTYPE  GLOBAL DEFAULT   26 _end
+    59: 0000000000001060    47 FUNC    GLOBAL DEFAULT   16 _start
+    60: 0000000000004010     0 NOTYPE  GLOBAL DEFAULT   26 __bss_start
+    61: 0000000000001149    27 FUNC    GLOBAL DEFAULT   16 main
+    62: 0000000000004010     0 OBJECT  GLOBAL HIDDEN    25 __TMC_END__
+    63: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_registerTMCloneTable
+    64: 0000000000000000     0 FUNC    WEAK   DEFAULT  UND __cxa_finalize@@GLIBC_2.2
+```
+
+The purpose of this post is not to teach you how to read all of this, because that's most likely reserved for another post, however, you can see that now we actually have some "text" we can interpret. Look at line 36, it clearly shows the filename that originated the **main** executable file. Also, you can clearly see, on line 61, that we have an entry point we're familiar with, the **main()** function, which you can infer from:
+
+```text
+61: 0000000000001149    27 FUNC    GLOBAL DEFAULT   16 main
+```
+
+This means that there's a function (FUNC), of size 27 bytes, that will reside at the address 0x1149 in memory. Besides this entry point, we can see familiar things like the `puts()` symbol on line 49, which tells us that there's probably something being printed out somewhere.
+
+Now, the thing is, when you write a program, you may want to make it hard for people to figure your stuff out and for that, there's "stripping", which will strip the output of these symbols. Without the symbols, things get quite complicated to reverse engineer sometimes, especially on large applications. 
+
+If you want to strip this binary, you can run the following:
+
+```bash
+$ strip --strip-all main
+```
+
+```bash
+$ readelf --syms main
+
+Symbol table '.dynsym' contains 7 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND
+     1: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_deregisterTMCloneTab
+     2: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND puts@GLIBC_2.2.5 (2)
+     3: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND __libc_start_main@GLIBC_2.2.5 (2)
+     4: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND __gmon_start__
+     5: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_registerTMCloneTable
+     6: 0000000000000000     0 FUNC    WEAK   DEFAULT  UND __cxa_finalize@GLIBC_2.2.5 (2)
+```
+
+Yep, good luck with this one, you see it has WAY less information now. You can still see that it calls `puts()` and has a `_start()` function though. By the way, we usually say `main()` is our entry point, but who calls `main()`? That's the job of the `_start()` function!
+
+Linking is way more complicated and contains more "cool things" than what I've shown, but for now, I think you get the gist of it.
+
+### Final product
+
+After linking there's nothing else to do, you now have an executable that you can run, as such:
+
+```bash
+./main
+
+Hello World, how's it going?
+```
+
+This is it for now, I may do another post in the future where we go through the insides of the object files and see how they "merge" together when linking, but for this one, the idea was to give a brief overview of what happens behind the scenes, at a semi-high level.
+
+If you've made it here, thank you and bye.
