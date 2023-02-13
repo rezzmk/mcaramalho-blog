@@ -6,6 +6,8 @@ const url = new URL(Astro.request.url);
 
 <script>
 	import { toggleClass } from "@/util";
+	import { PowerGlitch } from "powerglitch";
+	PowerGlitch.glitch(".logo", { playMode: "hover" });
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const { body } = document;
