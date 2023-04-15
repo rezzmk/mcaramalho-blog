@@ -9,12 +9,13 @@ const year = new Date().getFullYear();
 	<nav aria-label="More on this site">
 		<a href="/">Home</a>
 		<a href="/posts">Blog</a>
+		<a href="/rss.xml">RSS</a>
 	</nav>
 </footer>
 
 <style>
 	footer {
-		@apply mt-auto flex w-full flex-col items-center justify-center gap-y-2 pt-20 pb-4 text-center align-top text-gray-500 sm:flex-row sm:justify-between sm:text-xs;
+		@apply mt-auto flex w-full flex-col items-center justify-center gap-y-2 pb-4 pt-20 text-center align-top text-gray-500 sm:flex-row sm:justify-between sm:text-xs;
 
 		> div {
 			@apply mr-0 sm:mr-4;
@@ -24,7 +25,7 @@ const year = new Date().getFullYear();
 			@apply flex gap-x-2 sm:gap-x-0 sm:divide-x sm:divide-gray-500;
 
 			a {
-				@apply px-4 py-2 sm:py-0 sm:px-2 sm:hover:text-textColor sm:hover:underline;
+				@apply px-4 py-2 sm:px-2 sm:py-0 sm:hover:text-textColor sm:hover:underline;
 			}
 		}
 	}
