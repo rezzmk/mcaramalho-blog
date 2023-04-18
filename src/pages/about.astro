@@ -1,0 +1,56 @@
+---
+import PageLayout from "@/layouts/Base";
+import { Image } from "@astrojs/image/components";
+import aboutImg from "../assets/about-astro.png";
+const meta = {
+	title: "Whoami",
+	description: "Who am I",
+};
+---
+
+<PageLayout meta={meta}>
+	<div class="space-y-6">
+		<h1 class="title">Who am I?</h1>
+		<div
+			class="mt-14 prose prose-lm prose-cactus prose-headings:font-semibold prose-headings:before:content-['#'] prose-headings:before:text-accent prose-headings:before:absolute prose-headings:before:-ml-4 prose-th:before:content-none"
+		>
+			<p>
+				Once upon a time in 2007, at a humble cyber cafe, I witnessed a brazen
+				act of digital defiance: someone cheating in Counter Strike. While I
+				despised the act, I couldn't help but marvel at the sheer audacity and
+				technical prowess (of the cheat makers), and so, like a protagonist in a
+				coming-of-age movie, I embarked on a journey to understand the dark arts
+				of coding cheats (solely to battle bots, of course!).
+			</p>
+			<p>
+				My youthful delusions of grandeur were met with a humbling reality: I
+				wasn't the genius I thought I was. But that didn't stop me. I
+				persevered, learnt C, memory manipulation, Cheat Engine (nostalgia,
+				anyone?), and DLL hooking, all in the name of modifying game runtimes
+				and sounding cool... in my head.
+			</p>
+			<p>
+				As high school came to a close, I faced the classic dilemma: art or
+				computers? Ultimately, my love for coding won, and I opted for a
+				networking course instead of university (what the hell?). It was
+				fascinating, but my heart still belonged to coding and hacking in
+				general. After two years of working as a software developer, I finally
+				made the leap and enrolled in university.
+			</p>
+			<p>
+				For three grueling years, I juggled work from 9 to 6 and school from 6
+				to 10, every single day. It was a crash course in time management and
+				resilience (or so I tell myself). But after finishing my degree, did I
+				take a break? No, sir! I dove straight into a master's program in
+				Cybersecurity, because why not?
+			</p>
+			<p>
+				Today, I'm still navigating the challenges of being a working student
+				(we're always students in this field, I know...), but I wouldn't have it
+				any other way. And that, fellow stack overflowers, is what this blog is
+				all about: sharing my love for technology, learning, and the occasional
+				nerdy joke.
+			</p>
+		</div>
+	</div>
+</PageLayout>
