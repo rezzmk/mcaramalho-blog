@@ -173,7 +173,7 @@ You can do this however you want, doesn't really matter in my opinion, tinker wi
 
 Let's be real, during this time of computing, we didn't have the pretty fonts of today. Chip-8 programs can refer to a set of 16 5-byte sprites that represent fonts.
 
-You can look at [this pdf](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip-8.pdf) to get a sense of how they mapped the characters to the respective bit representations, it's pretty fun!
+You can look at [this pdf](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip8.pdf) to get a sense of how they mapped the characters to the respective bit representations, it's pretty fun!
 
 As an example, the number "3" is represented as (keep in mind 8-bit values):
 
@@ -1061,7 +1061,7 @@ fn map_keycode_to_Chip-8_key(keycode: Keycode) -> Option<u8> {
 }
 ```
 
-This is it! You can now look for ROM files to run. I like [this github repo](https://github.com/kripod/Chip-8-roms).
+This is it! You can now look for ROM files to run. I like [this github repo](https://github.com/kripod/Chip8-roms).
 
 If you run your code like `cargo run -- airplane.ch8`, you should be able to game on!
 
@@ -1071,5 +1071,5 @@ If you run your code like `cargo run -- airplane.ch8`, you should be able to gam
 
 I've based all of this on my own tears and sweat and these great articles about the subject:
 
-- [Thomas P. Greene's Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/Chip-8/C8TECH10.HTM#5.0)
-- [Chip-8 Design Specification](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip-8.pdf)
+- [Thomas P. Greene's Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
+- [Chip-8 Design Specification](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip8.pdf)
