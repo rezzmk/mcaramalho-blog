@@ -1,0 +1,1073 @@
+---
+layout: "@/layouts/BlogPost"
+title: Another Chip-8 Emulator (in Rust)
+pubDate: 2023-04-18
+publishDate: 18 April 2023
+description: Writing a Chip-8 Emulator in Rust
+categories: ["programming", "emulators", "rust"]
+tags: ["programming", "emulator", "rust"]
+seoMetaDescription: 'Writing a Chip-8 Emulator in Rust'
+---
+
+Ahoy, Rustaceans and retro-gaming enthusiasts! Today I bring you another not so useful post about a not so recent topic, that has been tackled not(not so many times).
+
+We're going to write a Chip-8 Emulator in Rust, from the ground up.
+
+I hope I don't make the Rust Foundation mad with this post, since nowadays one can't say or do anything without the fear or getting the full might of the law's beat down. Well... not really, at least not yet. If you don't know what this rant is about, start [here](https://foundation.rust-lang.org/news/rust-trademark-policy-draft-revision-next-steps/).
+
+**I am not affiliated with the Rust Foundation, bla bla bla, just let me use the language.**
+
+This is a long post, so go grab your caffeinated drink of choice and take a seat (or stand).
+
+The code for everything, and more, can be found at [https://github.com/rezzmk/rust-chip8/](https://github.com/rezzmk/rust-chip8/)
+
+# Emulators
+
+At its essence, an emulator is a software or hardware tool that replicates the functions of one system (the emulated system) on another system (the host system). It enables the host to run software, games, or applications designed for the emulated system, allowing users to experience or test software on different platforms without the need for the original hardware. Common examples include video game console emulators that enable playing classic games on modern devices like computers and smartphones.
+
+For instance, you may have used these already in the form of GameBoy emulators (I know I have).
+
+# Chip-8?
+
+Chances are you've never heard about Chip-8 and if that's the case, this intro is for you. 
+
+Chip-8 is essentially a very basic, interpreted, programming language that was popular amongst computer enthusiasts in the late 1970s, into the 80s.
+
+Back in the day (or so I hear, I ain't that old), you could buy these cool do-it-yourself computers like the [COSMAC VIP](https://en.wikipedia.org/wiki/COSMAC_VIP) or the [Telmac 1800](https://en.wikipedia.org/wiki/Telmac_1800). They were obviously very humble in terms of processing power and capacity, although compared to today's computers, even the greatest machines of that time would look like slow toasters, but that's besides the point.
+
+These machines were 8-bit microcomputers (thus the 8, in Chip-**8**) and they could run the Chip-8 interpreter (which is what we'll be writing, in reality).
+
+Most of its popularity was because it allowed developers to "easily" (programmers back then were just build different) write video games, or port existing ones, and play them on these machines. Titles that can run in Chip-8 are ones such as **Pong**, **Space Invaders**, **Tetris**, **Pacman**, etc...
+
+You can read the [wikipedia page](https://en.wikipedia.org/wiki/CHIP-8) on this for more information.
+
+To be able to emulate Chip-8, we'll have to mimic the environment in which these programs used to run on, basically, we'll recreate the virtual machine that interpreted Chip-8 code and ran it. 
+
+In the following sections we'll go through the structure of this system and only then we'll dive into the code. If it wasn't obvious from the title and intro, this will be written in **Rust**
+
+## Chip-8 - Memory
+
+Most commonly, Chip-8 can access up to 4KB (4096 bytes) of RAM, which is what we'll deal with here.
+
+The first 512 bytes, or if you prefer, from address **0x000** to **0x1FF**, are not to be touched by us. This is where the original magical code resided, that allowed Chip-8 programs to run. We don't need to deal with that portion because we'll be writing our own.
+
+So, what do we care about? Take the following picture as an example:
+
+![Chip-8 Memory Layout](/images/chip8memory.png)
+
+As shown in the carefully crafted image above, from 0 to 512 we don't touch anything, and anything above that, all the way to 4095 (0xFFF) is fair game, that leaves us with 3584 bytes for our binaries, not bad!
+
+> **Note:** There are more layouts than this, one example is the [ETI 660](https://www.emma02.hobby-site.com/eti.html) where programs actually started at offset 0x600.
+
+In our emulator, we'll represent this memory (the whole 4KB) as an array, which is kind of what RAM is if we put a few layers of complexity to the side.
+
+By the way, as wikipedia states, we could in theory use the bottom 512 bytes as well, but we can leave that for another stage, or in other words, that's a problem for future us, like many things we'll encounter throughout this project.
+
+## Chip-8 - Registers
+
+First things first, what's a register? A register is essentially a little box that can hold 1 value at a time. CPUs have a few of these and without them you wouldn't do anything of use with a computer.
+
+If you've ever seen assembly before, you probably saw something like the following instruction:
+
+```asm
+ADD, A, B
+```
+
+The above code just says "Add (the math operation) $A$ with $B$, and store that result in A". Now, $A$ and $B$ are registers, they're physical places in your CPU that are used to store, in this case, some numbers.
+
+> The above was an oversimplification of how these things work, you don't need a lot to follow along anyways.
+
+So, depending on the architecture of your CPU, you'll have different registers with different names, for instance, x86 has the infamous EAX, EBX, ECX, EDX... registers, ARM has different ones but, in our case, we care about Chip-8's registers! 
+
+Chip-8 has 16 general purpose registers, each of size 8-bit (1 byte). They're usually represented as $V_x$, where $x$ is an integer from $0$ to $15$.
+
+The $VF$ register is not to be used by programs, as it's actually used as a flag register by some instructions, which we'll implement.
+
+Additionally, we have a register that's used to store memory addresses and we call this $I$. This register is of size 16-bit, because we need to address $4KB$ of memory!
+
+If you've ever coded in assembly, or seen it, you know that you also need some way to keep track of the instructions that are being run, for that we have two registers (you can also call them pseudo-registers), called $PC$ and $SP$.
+
+$PC$ stands for Program Counter and it points to the memory address in which the instruction we're running resides. When we run an instruction, we increment this $PC$ value by 2, since every instruction takes 16 bits, or 2 bytes.
+
+$SP$ is the stack pointer, and it always points to the top of the stack.
+
+Finally, games need sound or they're boring. To handle this, Chip-8 has two timers that are used to produce sounds, the "Delay" and "Sound" timers. We'll see this more at a later stage, but for now, assume we need two registers $DT$ and $ST$ (Delay Timer and Sound Timer, respectively)
+
+To recap, we've got the following registers, which we'll represent somehow in our code:
+
+- $V_0, V_1, V_2, ..., VF$
+- $PC$
+- $I$
+- $SP$
+- $DT$
+- $ST$
+
+## Chip-8 - Stack
+
+The Chip-8 stack has 16 16-bit values, that are used to store the return address after a function returns (since these don't actually return values, they're usually referred to as subroutines)
+
+## Don't fall asleep yet
+
+Before I keep boring you with explanations, here's a sneak peak at how we can represent all of the above in a rust structure:
+
+```rust
+pub struct Chip-8 {
+    memory: [u8; 4096],
+    v: [u8; 16],
+    i: u16,
+    pc: u16,
+    stack: [u16; 16],
+    sp: u8,
+    delay_timer: u8,
+    sound_timer: u8,
+    ...
+}
+```
+
+We'll add more to it, but basically all you need as a starter is to represent the memory and registers in a way that's easily accessible and mutable.
+
+We get our 4KB of memory to manage, our 16 $V_x$ registers, the 16 value stack, etc...
+When you're writing emulators this is one of the most important steps, to represent exactly (or close to it) what the original system sees, even if you just encapsulate eveything in something like a struct.
+
+> Chip-8 is probably one of the simplest emulators you can do, others can get much more complicated, but this one is cool too.
+
+## Chip-8 - Keyboard
+
+Chip-8 computers used an hexadecimal keypad with 16 keys, something like this:
+
+![keypad](/images/16keypad.png)
+
+We want to be able to accept and act on input, which means we have to be able to somehow map all those 16 keycodes.
+
+All we need is to find some mapping we like between our keyboard, with hopefully more than 16 keys, to this ancient one. We'll get to that after, but we can just follow the approach of waiting for a keypress on our Rust program, then sending the correct keycode, like so:
+
+```rust
+fn map_keycode_to_Chip-8_key(keycode: Keycode) -> Option<u8> {
+    match keycode {
+        Keycode::Num1 => Some(0x1),
+        Keycode::Num2 => Some(0x2),
+        Keycode::Num3 => Some(0x3),
+        Keycode::Num4 => Some(0xC),
+        Keycode::Q => Some(0x4),
+        Keycode::W => Some(0x5),
+        Keycode::E => Some(0x6),
+        Keycode::R => Some(0xD),
+        Keycode::A => Some(0x7),
+        Keycode::S => Some(0x8),
+        Keycode::D => Some(0x9),
+        Keycode::F => Some(0xE),
+        Keycode::Z => Some(0xA),
+        Keycode::X => Some(0x0),
+        Keycode::C => Some(0xB),
+        Keycode::V => Some(0xF),
+        _ => None,
+    }
+}
+```
+
+You can do this however you want, doesn't really matter in my opinion, tinker with it and find the combination you like the most.
+
+## Chip-8 - Fonts
+
+Let's be real, during this time of computing, we didn't have the pretty fonts of today. Chip-8 programs can refer to a set of 16 5-byte sprites that represent fonts.
+
+You can look at [this pdf](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip-8.pdf) to get a sense of how they mapped the characters to the respective bit representations, it's pretty fun!
+
+As an example, the number "3" is represented as (keep in mind 8-bit values):
+
+**1111**0000 - 0xF0  
+000**1**0000 - 0x10  
+**1111**0000 - 0xF0  
+000**1**0000 - 0x10  
+**1111**0000 - 0xF0
+
+This means that we'll map a "3" to `0xF0 0x10 0xF0 0x10 0xF0`. 
+
+Here's the complete fontset at your disposal:
+
+```rust
+const FONTSET: [u8; 80] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+];
+```
+
+**I know I said no code until explanation was done, but I don't want to bore you too much with details**
+
+## Chip-8 - Display
+
+Chip-8 (not all versions) writes to a display that by today's standards of widescreen 49inch glory, is abusively cute. We're talking **64x32 monochromatic displays**.
+
+Here's an example:
+
+![display example](/images/display6432.png)
+
+Oh, and they didn't have colors originally!
+
+Basically, this is what you have to work it:
+
+![display coords](/images/displaydrawing.png)
+
+You can draw sprites of up to 15 bytes. We don't need to care a lot about this now, we'll eventually implement the drawing function.
+
+## Chip-8 - instructions
+
+Allright, now comes the really fun and depressing part at the same time (\*insert Schrödinger joke here\*), the instructions. This is the make it or break it part of our emulator, because if we fail these, we'll get some pretty scuffed results.
+
+The Chip-8 interpreter works by parsing 16-bit opcodes. We'll deal with all official 34 instructions.
+
+To understand the format of the Chip-8's instructions, let's first get a few conventions right.
+
+If you see $nnn$ that means "treat these 12 bits = 3 nibbles" as an address. Of course, a nibble is equal to 4 bits.
+
+If you just see $n$ that means you just look at 4 bits at that specific place, i.e; `Dxyn` turns into something that takes into consideration the last 4 bits as a single value (nibble).
+
+The placeholders $x$ and $y$ are used to specify the register index, e.g.; $x = 4$ means you want register $V_4$. The value of $x$ will always be the lower 4 bits of the high byte of the instruction and the $y$ value the upper 4 bits.
+
+If you see $kk$ that just means "Immediate value" and it's basically an 8-bit value, like, say, you want to add the number 10 to the register $V_5$, your instruction will definetely have a $kk = 10$ in there.
+
+Now, if you're not used to dealing in bits, here's a little primer on exactly what you need to know to follow along. Take the following number in binary, of size 16 bits:
+
+$$X = 10011001 10101010$$
+
+Now, that value has 16 bits, which means it has 4 nibbles. To get the values for each nibble, we can do some bitwise operations to get them. Let's get the first nibble first:
+
+1) We start by getting a mask where the only 1's are the bits we want to keep, like $ M = 11110000 00000000 $
+2) To get rid of all the noise from $ X $, we do an "AND" operation between $ X $ and $ M $, and since $ 1 \wedge 0 = 0 $, we're sure that with our mask, we'll just get 1's in the right places! So, run $ X \wedge M = 1001000000000000 = Z$
+3) Finally, we want to get rid of all those 0s after the 4th bit and to do that, we can shift the result 12 times to the right, which should bring the first 4 bits we want to the end, something like $ Z \gg 12 = 000000000001001 $
+
+The code for this is as simple as:
+
+```rust
+let nib_1 = (opcode & 0xF000) >> 12;
+```
+
+Now, for the other nibbles, you just apply the mask the same way and then shift accordingly, like so:
+
+```rust
+let nib_1 = (opcode & 0xF000) >> 12;
+let nib_2 = (opcode & 0x0F00) >> 8;
+let nib_3 = (opcode & 0x00F0) >> 4;
+let nib_4 = (opcode & 0x000F);
+```
+
+With this knowledge, if you now see an instruction like `0nnn` you know that when you're handling whatever that is, you'll be getting that 12-bit value like so:
+
+```rust
+// 0nnn
+let nnn = (opcode & 0x0FFF);
+```
+
+Or, for an instruction like `3xkk`, you'll do:
+
+```rust
+// 3xkk
+let x = (opcode & 0x0F00) >> 8;
+let kk = (opcode & 0x00FF)
+```
+
+And so on... I think we're ready to tackle the instructions now, here they are:
+
+- **0nnn** (**SYS** addr): Jump to routine at $nnn$. We don't use this, it's only for the real hardware thing on old computers
+- **00E0** (**CLS**): Clear the display
+- **00EE** (**RET**): Returns from a subroutine, by setting $PC$ to $SP$ and then subtracting 1 from $SP$
+- **1nnn** (**JP** addr): Jump to location $nnn$, by setting $PC$ to $nnn$
+- **2nnn** (**CALL** addr): Calls subroutine at address $nnn$, by incrementing $SP$, then placing the current $PC$ value on top of the stack. $PC$ is set to $nnn$ at the end
+- **3xkk** (**SE** Vx, byte): Skips the next instruction if $ V_x == kk $. This means the $PC$ register will be updated like `PC += 4` instead of `PC += 2`, thus skipping one instruction
+- **4xkk** (**SNE** Vx, byte): Same as with `3xkk`, but the comparison is "not equals", instead of "equals"
+- **5xy0** (**SE** Vx, Vy): Skips the next instruction if $ V_x = V_y $. This means the $PC$ register will be updated like `PC += 4` instead of `PC += 2`, thus skipping one instruction
+- **6xkk** (**LD** Vx, byte): Loads the value of $kk$ into $V_x$
+- **7xkk** (**ADD** Vx, byte): $ V_x = V_x + byte $
+- **8xy0** (**LD** Vx, Vy): $ V_x = V_y $
+- **8xy1** (**OR** Vx, Vy): $ V_x = V_x \vee V_y $
+- **8xy2** (**AND** Vx, Vy): $ V_x = V_x \wedge V_y $
+- **8xy3** (**XOR** Vx, Vy): $ V_x = V_x \oplus V_y $
+- **8xy4** (**ADD** Vx, Vy): $ V_x = V_x + V_y $. $ VF $ Is also set to 1 if $ V_x + V_y > 255 $
+- **8xy5** (**SUB** Vx, Vy): $ V_x = V_x - V_y $. $ VF $ Is set to "NOT borrow"
+- **8xy6** (**SHR** Vx, _): If the least-significant bit of $V_x$ is 1, then $VF$ is to 1, otherwise 0, then $V_x = V_x / 2 $.
+- **8xy7** (**SUBN** Vx, Vy): $ V_x = V_x - V_y $. Set $VF$ to "NOT borrow"
+- **8xyE** (**SHL** Vx, _): $ V_x = V_x \cdot 2 $. If the most significant bit of $V_x = 1$, then $VF$ is set to 1, otherwise 0. Shifting left once multiplies the value by 2
+- **9xy0** (**SNE** Vx, Vy): Skips next instruction if $V_x \neq V_y $
+- **Annn** (**LD** I, addr): Sets the register $I$ to $nnn$
+- **Bnnn** (**JP** V0, addr): Jumps to the location $ nnn + V_0 $, `PC += nnn + V0`
+- **Cxkk** (**RND** Vx, byte): Generates a random number and then ANDs it with `kk`, like $ V_x = kk \wedge rnd $
+- **Dxyn** (**DRW** Vx, Vy, nibble): Display n-byte sprite starting at memory location $I$ to the coordinates $(V_x, V_y)$ and sets $VF = collision$. Sprites will be **XOR**'d onto the screen. If this **XOR** process causes any pixels to be erased, $VF = 1$, otherwise, $VF = 0$. In case the sprite would be position to the outside of the screen, calculations are done so it can wrap around the screen, to the opposite side
+- **Ex9E** (**SKP** Vx): Skips to the next instruction if the key with the value of $V_x$ is pressed. This instruction checks the keyboard and if that key is currently in **Down position**, then `PC += 4`
+- **ExA1** (**SKNP** Vx): Skips to the next instruction if the key with the value of $V_x$ is not pressed. This instruction checks the keyboard and if that key is currently in **Up position**, then `PC += 4`
+- **Fx07** (**LD** Vx, DT): $V_x=DT$, sets $V_x$ to the current $ DT $ (Delay Timer) value
+- **Fx0A** (**LD** Vx, K): Waits for a key press, stores the value of that key in $V_x$. In this instruction, all execution stops until a key is pressed
+- **Fx15** (**LD** DT, Vx): $DT = V_x$, sets the value of register $V_x$ into the delay timer
+- **Fx18** (**LD** ST, Vx): $ST=V_x$, puts $V_x$ on $ ST $ (Sound Timer)
+- **Fx1E** (**ADD** I, Vx): $I = I + V_x$
+- **Fx29** (**LD** F, Vx): Sets $I$ to the location in memory of sprite for the digit in $V_x$. The fontset is stored in the first 80 bytes of memory and to obtain this value, we multiply $V_x$ by 5 (each font character is 5 bytes long).
+- **Fx33** (**LD** B, Vx): Stores the BCD (Binary-coded decimal) representation of $V_x$ in memory locations $ I $, **I + 1** and **I + 2**. The hundreds digits goes to **M\[I\]**, the tens to **M\[I + 1\] and the ones digit to **\[I + 2\]**
+- **Fx55** (**LD** I, Vx): Given the $ x $ value, fills memory starting at address $ I $ with the values of the registers $V_0$, all the way to $V_x$. At the end, the operation $ I = I + x + 1 $ is done
+- **Fx65** (**LD** Vx, \[I\]): Given the $ x $ value, fills registers $V_0$ to $V_x$ with the values from memory starting at the address stored in $ I $. At the end, the operation $ I = I + x + 1 $ is done
+
+I'll show you later a way of translating these instruction "names" into actual functions in our code, don't worry.
+
+# Implementation
+
+Oof, that was alot, but now we understand most, if not all, of what we need to do to be able to write a Chip-8 emulator.
+
+We'll be using **Rust** (I think that was obvious) for this. To draw things on the screen we'll use **SDL**, more specifically the [sdl2](https://docs.rs/sdl2/latest/sdl2/) crate, which contains all the bindings we need for it. It "should" run the same in Windows, Linux, MacOS, provided you have the [**SDL** libraries](https://wiki.libsdl.org/SDL2/Installation) installed. I've done it under linux and also tested on MacOS.
+
+## Bootstrapping the project
+
+It's as easy as running `cargo new rust-Chip-8-emulator`!
+
+After, we can setup our dependencies. Edit your **Cargo.toml** file like so:
+
+```toml
+[dependencies]
+rand = "*"
+sdl2 = "*"
+```
+
+As you can see, we don't need a lot.
+
+Let's start by creating the window where the magic will happen, you can do it like so (in your main file):
+
+```rust
+const PIXEL_SIZE: u32 = 10;
+const WIDTH: u32 = 64 * PIXEL_SIZE;
+const HEIGHT: u32 = 32 * PIXEL_SIZE;
+
+fn main() {
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem
+        .window("Chip-8 Emulator!", WIDTH, HEIGHT)
+        .build()
+        .unwrap();
+
+    let mut canvas = window.into_canvas().build().unwrap();
+}
+```
+
+Remember the size of our display? **64x32**, so we're using that here, to draw the window. The pixel size we're setting is of size 10, so basically we'll be drawing a window at a 640x320 resolution.
+
+if you run the code above, you'll just see a window open and close very quickly, that's because we need to setup something called an event loop.
+
+In our case, we'll use something called an **Event Pump**, which basically gathers all pending events from an event queue. In more simple terms, we need to create a while loop that doesn't end unless we tell it to. This loop has to be able to handle events like Key presses and so on...
+
+Add the following code now:
+
+```rust
+use sdl2::keyboard::Keycode;
+use sdl2::event::Event;
+
+let mut event_pump = sdl_context.event_pump().unwrap();
+
+let mut running: bool = true;
+while running {
+    for event in event_pump.poll_iter() {
+        match event {
+            Event::Quit { .. }
+            | Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                ..
+            } => {
+                println!("Escape pressed, exiting...");
+                running = false;
+            }
+            _ => {}
+        }
+    }
+}
+```
+
+In the above code, we're just getting an event from the event pump and we're handling it. For now, we just close the application if we press the "X" on the window, or if we press the Escape key.
+
+The complete **main.rs** at this stage is:
+
+```rust
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
+const PIXEL_SIZE: u32 = 10;
+const WIDTH: u32 = 64 * PIXEL_SIZE;
+const HEIGHT: u32 = 32 * PIXEL_SIZE;
+
+fn main() {
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem
+        .window("Chip-8 Emulator!", WIDTH, HEIGHT)
+        .build()
+        .unwrap();
+
+    let mut canvas = window.into_canvas().build().unwrap();
+
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let mut running: bool = true;
+    while running {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => {
+                    println!("Escape pressed, exiting...");
+                    running = false;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+```
+
+## Chip-8, finally!!
+
+So, I put the bootstrap of the main loop above to not bore you straight away into the meat of the problem, this way you can see something happen without much work.
+
+We'll encapsulate the whole Chip-8 system within a different rust file, call it **chip8.rs** or whatever you want.
+
+As you've seen before in the explanation stages, we'll have to map the complete Chip-8 system ourselves. That's not difficult, I've even given you a sneak peak of the state structure before, but essentially, you can start by creating a structure that encapsulates the memory, registers, stack, etc..., like so:
+
+```rust
+pub struct State {
+    memory: [u8; 4096],
+    v: [u8; 16],             
+    i: u16,                  
+    pc: u16,                 
+    stack: [u16; 16],        
+    sp: u8,                  
+    display: [bool; 64 * 32],
+    delay_timer: u8,         
+    sound_timer: u8,         
+    keypad: [bool; 16],      
+}
+```
+
+So, we got a memory map of size 4KB, our 16 $V_x$, our $I$ and $PC$ registers, as well the $SP$, but I'd already shown you these.
+
+The new ones are the display array, where we're going to store the current display state. Since we're dealing with monochrome displays, we only have 2 colors, white or black, so we can just have an array of booleans (0s and 1s) to determine if said pixel is turned on or off.
+
+The delay and sound timers are now there as well, and finally, our keypad, which is just a 16 values array representing the keypad.
+
+We can also go ahead and set our fontset in there first. I've already given that to you as well, so our **chip8.rs** now looks like:
+
+```rust
+const FONTSET: [u8; 80] = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+];
+
+pub struct State {
+    memory: [u8; 4096],      
+    v: [u8; 16],             
+    i: u16,                  
+    pc: u16,                 
+    stack: [u16; 16],        
+    sp: u8,                  
+    display: [bool; 64 * 32],
+    delay_timer: u8,         
+    sound_timer: u8,         
+    keypad: [bool; 16],      
+}
+```
+
+What's next? We need a way to initialize the state, which is like our "boot" function, where we'll setup the initial values, etc...
+
+We can do that by creating a constructor for `State`.
+
+```rust
+impl State {
+    pub fn new() -> Self {
+        let mut state = State {
+            memory: [0u8; 4096],
+            v: [0; 16],
+            i: 0,
+            pc: 0x200,
+            stack: [0; 16],
+            sp: 0,
+            display: [false; 64 * 32],
+            delay_timer: 0,
+            sound_timer: 0,
+            keypad: [false; 16],
+        }
+
+        state.load_font_set();
+        return state;
+    }
+
+    fn load_font_set(&mut self) {
+        self.memory[0..FONTSET.len()].copy_from_slice(&FONTSET);
+    }
+}
+```
+
+We set set everything we can to 0s. But! take the value of `pc` into consideration, remember the memory layout shown in the beginning of this post? Programs start at **0x200**, so we're setting our program counter to that address.
+
+We also load the fontset into memory. For this we create a helper function `load_font_set()` that we can use to copy the contents of `FONTSET` into the right places in memory.
+
+We will also need a way to load the programs into memory. Programs in this context are called **ROMs** and loading them is as easy as reading a file and copying the byte contents of it into our memory representation.
+
+```rust
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+
+pub fn load_rom<P: AsRef<Path>>(&mut self, path: P) -> std::io::Result<()> {
+    let mut file = File::open(path)?;
+    file.read(&mut self.memory[0x200..])?;
+    Ok(())
+}
+```
+
+You can add that into the `State` implementation. All its doing is copying the file into our memory array, starting at **0x200** (where the programs start!).
+
+Now, let's think about this for a second. CPUs run in cycles, that means for a certain unit of time, it can do some work, rinse and repeat. We need to emulate this somehow, by making sure that every $X$ amount of microseconds (or whatever) we emulate said cycle, where it needs to read the relevant opcode and run it.
+
+To emulate the cycle we need 3 stages:
+1) Fetch the current opcode
+2) Execute the opcode
+3) Update our Sound and Delay timers
+
+```rust
+pub fn emulate_cycle(&mut self) {
+    let opcode = self.fetch_opcode();
+    self.execute_opcode(opcode);
+    self.update_timers();
+}
+
+fn fetch_opcode(&self) -> u16 {
+    let hi_byte = self.memory[self.pc as usize] as u16;
+    let lo_byte = self.memory[self.pc as usize + 1] as u16;
+    return (hi_byte << 8) | lo_byte;
+}
+
+fn update_timers(&mut self) {
+    if self.delay_timer > 0 {
+        self.delay_timer -= 1;
+    }
+
+    if self.sound_timer > 0 {
+        self.sound_timer -= 1;
+    }
+}
+```
+
+We don't have that `execute_opcode()` function yet, but we will soon. Essentially, we're fetching the opcode from memory at the current $PC$'s address. Since instructions are of 16 bits and memory spaces are 8-bits, we have to read two bytes from memory. We can do that with the shown logic of getting the `hi_byte` and `lo_byte`. If we then Right shift the `hi_byte` and **OR** with the `lo_byte`, we effectively get the 16-bit instruction. What we're doing there is "Add 8 extra white spaces in the high byte and merge with the low byte"
+
+Now let's write the `execute_opcode(opcode)` function. We just need a way to match that opcode into the right instruction functions, to do that, we can leverage Rust's really good pattern matching abilities. We start by getting the nibbles for that instruction:
+
+```rust
+fn execute_opcode(&self self, opcode: u16) {
+    let nibbles = (
+        (opcode & 0xF000) >> 12 as u8,
+        (opcode & 0x0F00) >> 8 as u8,
+        (opcode & 0x00F0) >> 4 as u8,
+        (opcode & 0x000F) as u8,
+    );
+
+    let _ = match nibbles {
+        (0x00, 0x00, 0x0e, 0x00) => self.op_00e0(),
+        (0x00, 0x00, 0x0e, 0x0e) => self.op_00ee(),
+        (0x01, _, _, _) => self.op_1nnn(opcode),
+        _ => self.pc += 2;
+    }
+}
+```
+
+That matcher is not complete yet, but let's think about that function for a second.
+We start by getting the nibbles, as explained earlier in this post, with that, we can start matching the opcodes to the right instruction functions. The first two matches there are pretty easy to understand, we just match the nibble values to whatever is stated on the op names.
+
+The last match `0x01, _, _, _` just says "If there's something that starts with 0x01, send it to `op_1nnn()`".
+
+If we don't find a match, we're just ignoring the instruction and incrementing the $PC$ accordingly.
+
+Before we get into the instruction implementations, and because this part is utterly boring, here's the complete matcher code:
+
+```rust
+fn execute_opcode(&mut self, opcode: u16) {
+    let nibbles = (
+        (opcode & 0xF000) >> 12 as u8,
+        (opcode & 0x0F00) >> 8 as u8,
+        (opcode & 0x00F0) >> 4 as u8,
+        (opcode & 0x000F) as u8,
+    );
+
+    let _ = match nibbles {
+        (0x00, 0x00, 0x0e, 0x00) => self.op_00e0(),
+        (0x00, 0x00, 0x0e, 0x0e) => self.op_00ee(),
+        (0x01, _, _, _) => self.op_1nnn(opcode),
+        (0x02, _, _, _) => self.op_2nnn(opcode),
+        (0x03, _, _, _) => self.op_3xkk(opcode),
+        (0x04, _, _, _) => self.op_4xkk(opcode),
+        (0x05, _, _, 0x00) => self.op_5xy0(opcode),
+        (0x06, _, _, _) => self.op_6xkk(opcode),
+        (0x07, _, _, _) => self.op_7xkk(opcode),
+        (0x08, _, _, 0x00) => self.op_8xy0(opcode),
+        (0x08, _, _, 0x01) => self.op_8xy1(opcode),
+        (0x08, _, _, 0x02) => self.op_8xy2(opcode),
+        (0x08, _, _, 0x03) => self.op_8xy3(opcode),
+        (0x08, _, _, 0x04) => self.op_8xy4(opcode),
+        (0x08, _, _, 0x05) => self.op_8xy5(opcode),
+        (0x08, _, _, 0x06) => self.op_8xy6(opcode),
+        (0x08, _, _, 0x07) => self.op_8xy7(opcode),
+        (0x08, _, _, 0x0e) => self.op_8xye(opcode),
+        (0x09, _, _, 0x00) => self.op_9xy0(opcode),
+        (0x0a, _, _, _) => self.op_annn(opcode),
+        (0x0b, _, _, _) => self.op_bnnn(opcode),
+        (0x0c, _, _, _) => self.op_cxkk(opcode),
+        (0x0d, _, _, _) => self.op_dxyn(opcode),
+        (0x0e, _, 0x09, 0x0e) => self.op_ex9e(opcode),
+        (0x0e, _, 0x0a, 0x01) => self.op_exa1(opcode),
+        (0x0f, _, 0x00, 0x07) => self.op_fx07(opcode),
+        (0x0f, _, 0x00, 0x0a) => self.op_fx0a(opcode),
+        (0x0f, _, 0x01, 0x05) => self.op_fx15(opcode),
+        (0x0f, _, 0x01, 0x08) => self.op_fx18(opcode),
+        (0x0f, _, 0x01, 0x0e) => self.op_fx1e(opcode),
+        (0x0f, _, 0x02, 0x09) => self.op_fx29(opcode),
+        (0x0f, _, 0x03, 0x03) => self.op_fx33(opcode),
+        (0x0f, _, 0x05, 0x05) => self.op_fx55(opcode),
+        (0x0f, _, 0x06, 0x05) => self.op_fx65(opcode),
+        _ => self.pc += 2,
+    };
+}
+```
+
+Now that we're able to correctly decode all the opcodes into their respective functions, let's start implementing them.
+
+I won't give you the code for all instructions, in fact, I think it's a good exercise to do them yourself, but if you want them as a reference, [check the repo](https://github.com/rezzmk/rust-Chip-8/blob/main/src/Chip-8.rs).
+
+Let's start with the easy ones, like `00e0`. If you look at the instructions section, you'll see this one is for clearning the display. To implement it, all we need is to set everything under `state.display` to **false**.
+
+```rust
+fn op_00e0(&mut self) {
+    self.display.fill(false);
+    self.pc += 2;
+}
+```
+
+Notice the `self.pc += 2` line, that will be present in most of our instructions, it just says "Ok, I'm done here, go to the next instruction".
+
+What about `00ee` (Return from a subroutine)? This one is more fun; in my description for the instruction I have "Returns from a subroutine, by setting $PC$ to $SP$ and then subtracting 1 from $SP$". Do achieve this, you can write the following:
+
+```rust
+fn op_00ee(&mut self) {
+    self.sp -= 1;
+    self.pc = self.stack[self.sp as usize] + 2;
+}
+```
+
+Notice that in this one we're not incrementing the $PC$ by 2, we don't want to do that, but rather go to whatever the return address should be, on the stack.
+
+Now let's take one that has parameters, like `1nnn`, which is just a normal **JMP** instruction, that is, it'll set the $PC$ to whatever $nnn$ is set to.
+
+```rust
+fn op_1nnn(&mut self, opcode: u16) {
+    self.pc = opcode & 0x0FFF;
+}
+```
+
+Remember the whole bit operations crash course from before? We're getting the $nnn$ value by **ANDing** the opcode with the mask **0x0FFF**, and just setting that address on the program counter.
+
+The other type of instructions you'll see are ones where you need to get an $x$ or $y$ value, as well as potentially some $ kk $ value, or $ n $... you get the idea.
+
+One such instruction is the `4xkk`, which should skip the next instruction if $V_x \neq kk$.
+
+```rust
+fn op_4xkk(&mut self, opcode: u16) {
+    let x = ((opcode & 0x0F00) >> 8) as usize;
+    let kk = (opcode & 0x00FF) as u8;
+    if self.v[x] != kk {
+        self.pc += 4;
+    }
+    else {
+        self.pc += 2;
+    }
+}
+```
+
+We're basically doing our bit magic to get the correct values, then we're comparing if the register $V_x$ value is different than the byte $ kk $. If it is, we're skipping the next instruction by incrementing the program counter by 4 bytes, instead of 2 (remember, 1 instruction equals 2 bytes).
+
+I'ma give you two more instructions and the rest you can do yourself... or ~steal~ take inspiration from my git repo :)
+
+The `fx0a`: This is the one where you wait for a keypress. I promise it's simpler than it sounds:
+
+```rust
+fn op_fx0a(&mut self, opcode: u16) {
+    let x = ((opcode & 0x0F00) >> 8) as usize;
+
+    let key_pressed = self.keypad.iter().position(|&k| k);
+    match key_pressed {
+        Some(key) => {
+            self.v[x] = key as u8;
+            self.pc += 2;
+        }
+        None => {
+            self.pc -= 2
+        }
+    }
+}
+```
+
+Besides the usual shenanigan of getting the $ x $ value from our opcode, we have the following line:
+
+```rust
+let key_pressed = self.keypad.iter().position(|&k| k);
+```
+
+We're getting an iterator over the `keypad` array and running the closure `|&k| k` on the `position()` function, which just means we're getting the first key pressed in our `keypad`, if it exists.
+
+When we're matching that value, if there is one, we increment our program counter after setting the $V_x$ register to that key value. If there is no key pressed, i.e.; if we get to that `None` case, we just decrement the program counter by 2. This means we'll rerun the same instruction over and over again. It's kind of the same as doing a while loop but in a cooler way (subjective to the reader, of course).
+
+Last one! The `dxyn`, or the "Draw this to the screen" instruction. This is the most complicated one and as such I think it's good to go over it:
+
+```rust
+fn op_dxyn(&mut self, opcode: u16) {
+    let x = ((opcode & 0x0F00) >> 8) as usize;
+    let y = ((opcode & 0x00F0) >> 4) as usize;
+    let height = (opcode & 0x000F) as usize;
+    let vx = self.v[x] as usize;
+    let vy = self.v[y] as usize;
+
+    self.v[0xF] = 0;
+
+    for row in 0..height {
+        let sprite_row = self.memory[self.i as usize + row];
+        for col in 0..8 {
+            if (sprite_row & (0x80 >> col)) != 0 {
+                let pixel_index = (vx + col + (vy + row) * 64) % (64 * 32);
+                if self.display[pixel_index] {
+                    self.v[0xF] = 1;
+                }
+                self.display[pixel_index] ^= true;
+            }
+        }
+    }
+
+    self.pc += 2;
+}
+```
+
+In this instruction, the interpreter should read $n$ bytes from memory, starting at whatever address is stored in the register $I$. These bytes `M\[I..I + n\] are then displayed as sprites on the screen, at coordinates $(V_x, V_y)$.
+
+We start by decoding our variables $ x $, $ y $ and `height`.
+
+```rust
+let x = ((opcode & 0x0F00) >> 8) as usize;
+let y = ((opcode & 0x00F0) >> 4) as usize;
+let height = (opcode & 0x000F) as usize;
+
+let vx = self.v[x] as usize;
+let vy = self.v[y] as usize;
+```
+
+The `height` variable is our $n$, I'm calling it `height` because it makes sense when we think of sprites.
+We can then just store the values of $V_x$ and $V_y$ in separate variables for ease of access (typing less is good).
+
+If you read the instruction details from before, you'll see that it states that if pixels are erased during drawing, the value of $VF$ is set to **1**, otherwise **0**. So, we can just set that to 0 straight away, with `self.v[0xF] = 0`.
+
+Now for the "complicated" part (it's not I promise). Sprites are always 8-pixels wide and up to 15 lines high. Something like this:
+
+![sprite demo](/images/sprite-demo.png)
+
+So, what we can do to draw these is to iterate over every line, and inside that loop, iterate the columns (always 8).
+
+```rust
+for row in 0..height {
+    let sprite_row = self.memory[self.i as usize + row];
+    for col in 0..8 {
+        //
+    }
+}
+```
+
+`sprite_row` will contain just the sprite row because, remember, sprites will be stored in memory, strating at the address stored in $I$. Notice the columns are represented in one single byte, so every value in memory is one entire row (8 bits, 8 pixels, 1 byte).
+
+After we have the row we can start iterating over the pixels. 
+
+```rust
+for row in 0..height {
+    let sprite_row = self.memory[self.i as usize + row];
+    for col in 0..8 {
+        if (sprite_row & (0x80 >> col)) != 0 {
+            let pixel_index = (vx + col + (vy + row) * 64) % (64 * 32);
+            if self.display[pixel_index] {
+                self.v[0xF] = 1;
+            }
+            self.display[pixel_index] ^= true;
+        }
+    }
+}
+```
+
+That check `(sprite_row & (0x80 >> col)) != 0` is asking if that pixel in the sprite row is turned on or not. the `0x80 >> col` is just getting the bit we want in that byte, and then **ANDing** with the sprite row byte to see if it's **1** (ON) or **0** (OFF).
+
+If it's off we don't do anything, if it's on we need to do some math to get the index of that pixel on the screen. If we only looked at $V_x$ and $V_y$ we would face the risk of pixels being drawn outside of the screen and since it's specified that these should wrap, we have to make sure we keep it within these bounds, by doing that operation `(vx + col + (vy + row) * 64) % (64 * 32)`, where the first part just gives us a two dimensional value (coordinate) in a single value that we have in our display array.
+
+We then check if the current display pixel at that index is ON, and if is, set the $VF$ register to 1. The main operation here is the `self.display\[pixel_index\] ^= true`, which as specified, **XORs** that display position with 1.
+
+This is pretty much it for the instructions part, and therefore, for 90% of the project. We'll get back to this **Chip-8.rs** file soon but for now it's done!! Remember, go check the rest of the instructions if you need help, in my github page, although I urge you to try and do them yourself if you're new to these things, it'll greatly help your understanding.
+
+## Chip-8 - Connecting the dots
+
+Now we get back to our **main.rs** file, where we'll run the main loop. Currently it looks like this:
+
+```rust
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
+const PIXEL_SIZE: u32 = 10;
+const WIDTH: u32 = 64 * PIXEL_SIZE;
+const HEIGHT: u32 = 32 * PIXEL_SIZE;
+
+fn main() {
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem
+        .window("Chip-8 Emulator!", WIDTH, HEIGHT)
+        .build()
+        .unwrap();
+
+    let mut canvas = window.into_canvas().build().unwrap();
+
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let mut running: bool = true;
+    while running {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => {
+                    println!("Escape pressed, exiting...");
+                    running = false;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+```
+
+This opens the game window at the correct size and waits for exit inputs. We're half way there :) Just have to connect our Chip-8 engine in here. 
+
+Before the main loop, let's get an instance of our Chip-8 machine, by doing:
+
+```rust
+let mut Chip-8 = Chip-8::State:new();
+```
+
+We now need to load the ROM in there. Let's also prepare our emulator to allow running any ROM file from the args list.
+
+```rust
+let args: Vec<String> = env::args().collect();
+if args.len() < 2 {
+    println!("Usage: Chip-8_emulator <path_to_rom>");
+    return;
+}
+if let Err(e) = Chip-8.load_rom(&args[1]) {
+    println!("Failed to load ROM: {}", e);
+    return;
+}
+```
+
+The main thing here is that `Chip-8.load_rom()` line. Now that we have our "state machine" up and running, we can start making it run, by tinkering with the main loop.
+
+For each iteration cycle in the main loop, we need three main things:
+
+1) Emulate a cycle
+2) Update the timers
+3) Redraw the display
+
+Computers are insanely fast and we can't just these steps and expect our programs to be usable, we need to introduce some artificial delay in there. You can do that by having this in the main loop:
+
+```rust
+while running {
+    let start_time = Instant::now()
+
+    // rest of the code
+
+    let delay_per_instruction = 2000;
+    let elapsed = start_time.elapsed();
+    if elapsed < Duration::from_micros(delay_per_instruction) {
+        std::thread::sleep(Duration::from_micros(delay_per_instruction) - elapsed);
+    }
+}
+```
+
+Ok, now that we have the delays in, let's get back the the steps I've stated above:
+
+```rust 
+while running {
+    let start_time = Instant::now()
+
+    // Event pump code here
+
+    Chip-8.emulate_cycle();
+    Chip-8.update_timers();
+    draw_display(&Chip-8, &mut canvas);
+
+    let delay_per_instruction = 2000;
+    let elapsed = start_time.elapsed();
+    if elapsed < Duration::from_micros(delay_per_instruction) {
+        std::thread::sleep(Duration::from_micros(delay_per_instruction) - elapsed);
+    }
+}
+```
+
+Leaving the event pump code for now (input handling), let's look at the 3 stages. The first two just call functions I've already given you. Now all that's left is to write code to draw to your screen based on whatever's in the `display` array inside our Chip-8 machine.
+
+This is all you need:
+
+```rust
+fn draw_display(Chip-8: &Chip-8::State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.clear();
+
+    canvas.set_draw_color(Color::GREEN);
+
+    for y in 0..32 {
+        for x in 0..64 {
+            let index = y * 64 + x;
+            if Chip-8.get_display()[index] {
+                let _ = canvas.fill_rect(Rect::new(
+                    (x as u32 * 10) as i32,
+                    (y as u32 * 10) as i32,
+                    10,
+                    10,
+                ));
+            }
+        }
+    }
+
+    canvas.present();
+}
+```
+
+It's a little bit besides the point of this guide, but basically it's using **sdl2** to draw, by going through every pixel in `display` and drawing it accordingly. Remember our pixel size is set to 10.
+
+You also need to create the following function inside **Chip-8.rs**:
+
+```rust
+pub fn get_display(&self) -> &[bool; 64 * 32] {
+    return &self.display;
+}
+```
+
+Just because `display` is not public!
+
+Now for the grand finale we take care of inputs. Let's add these functions inside **Chip-8.rs**:
+
+```rust
+pub fn key_down(&mut self, key: u8) {
+    if key < 16 {
+        self.keypad[key as usize] = true;
+    }
+}
+
+pub fn key_up(&mut self, key: u8) {
+    if key < 16 {
+        self.keypad[key as usize] = false;
+    }
+}
+```
+
+Basically, `key_down` will set a keypad key to pressed, `key_up` does the opposite.
+
+On the **main.rs** file, we now update the event loop to the following:
+
+```rust
+for event in event_pump.poll_iter() {
+    match event {
+        // the other events...
+        Event::KeyDown {
+            keycode: Some(keycode),
+            ..
+        } => {
+            if let Some(Chip-8_key) = map_keycode_to_Chip-8_key(keycode) {
+                Chip-8.key_down(Chip-8_key);
+            }
+        }
+        Event::KeyUp {
+            keycode: Some(keycode),
+            ..
+        } => {
+            if let Some(Chip-8_key) = map_keycode_to_Chip-8_key(keycode) {
+                Chip-8.key_up(Chip-8_key);
+            }
+        }
+        _ => {}
+    }
+}
+```
+
+Essentially we fetch our inputs, map them to keycodes and send them to our machine to be handled accordingly. The code for the mapping was already given before, but here it is (I know the post is long):
+
+```rust
+fn map_keycode_to_Chip-8_key(keycode: Keycode) -> Option<u8> {
+    match keycode {
+        Keycode::Num1 => Some(0x1),
+        Keycode::Num2 => Some(0x2),
+        Keycode::Num3 => Some(0x3),
+        Keycode::Num4 => Some(0xC),
+        Keycode::Q => Some(0x4),
+        Keycode::W => Some(0x5),
+        Keycode::E => Some(0x6),
+        Keycode::R => Some(0xD),
+        Keycode::A => Some(0x7),
+        Keycode::S => Some(0x8),
+        Keycode::D => Some(0x9),
+        Keycode::F => Some(0xE),
+        Keycode::Z => Some(0xA),
+        Keycode::X => Some(0x0),
+        Keycode::C => Some(0xB),
+        Keycode::V => Some(0xF),
+        _ => None,
+    }
+}
+```
+
+This is it! You can now look for ROM files to run. I like [this github repo](https://github.com/kripod/Chip-8-roms).
+
+If you run your code like `cargo run -- airplane.ch8`, you should be able to game on!
+
+![airplane.ch8](/images/airplane.png)
+
+# Credits
+
+I've based all of this on my own tears and sweat and these great articles about the subject:
+
+- [Thomas P. Greene's Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/Chip-8/C8TECH10.HTM#5.0)
+- [Chip-8 Design Specification](https://www.cs.columbia.edu/~sedwards/classes/2016/4840-spring/designs/Chip-8.pdf)

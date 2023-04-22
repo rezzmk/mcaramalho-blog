@@ -167,7 +167,7 @@ When you click **OK** you'll be greeted with the properties of that window. Insp
 
 This is the last thing I want to explain before going into the h4ck32m4n stuff. 
 
-When you do something like clicking the **X** button to close the window, the following happens:
+When you do something like clicking the $ x $ button to close the window, the following happens:
 
 ![](/images/DestroyWindow.png)
 
@@ -176,7 +176,7 @@ Things like sizing, colors, etc... should definitely be handled on the applicati
 
 Looking at our code from above, the callback `WindowProc()` is the key. We return the result of calling  `DefWindowProc()` on any message that doesn't fit what we have in our switch statement, which will be handled the default way. By "default way" I just mean we don't need to care about it, **Windows** will do it for us.
 
-Looking at the image, we see that when we click the **X** button to close the window, the function `CloseWindow()` is called, which will put a **WM_CLOSE** message in the queue. Our message loop will fetch that thing and pass it through our `WindowProc()`, which will see if there's any custom handling for it. There's not! So, it calls the `DefWindowProc()` function, which will in turn push a new **WM_DESTROY** message.
+Looking at the image, we see that when we click the $ x $ button to close the window, the function `CloseWindow()` is called, which will put a **WM_CLOSE** message in the queue. Our message loop will fetch that thing and pass it through our `WindowProc()`, which will see if there's any custom handling for it. There's not! So, it calls the `DefWindowProc()` function, which will in turn push a new **WM_DESTROY** message.
 
 Lastly, when handling the **WM_DESTROY** message, we now have a case for it:
 

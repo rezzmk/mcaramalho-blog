@@ -69,7 +69,7 @@ Well, now that you have a sense (hopefully) of S-Boxes, Feistel Networks and the
 
 So, let's dissect the image! You see that the first thing it does is to get half the block and run it through an **E** process. This stands for **Expansion** and it's basically a process in which half of those bits (16) will be duplicated, resulting in 48 bits total. This result is then xored with the round key (subkey) and we're left with a 48 bit value.
 
-Now, this value is split into 8 parts of 6 bits, and each part is sent to an S-Box. As you've seen earlier, these will produce **m** bits from **n** bits, in this case, they produce 4 bits of output from 6 of input.
+Now, this value is split into 8 parts of 6 bits, and each part is sent to an S-Box. As you've seen earlier, these will produce **m** bits from $ n $ bits, in this case, they produce 4 bits of output from 6 of input.
 
 Finally, these 32 resultant bits are reordered based on a permutation rule. This rule is set in a P-Box.
 
