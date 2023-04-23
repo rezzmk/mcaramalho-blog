@@ -835,7 +835,7 @@ That check `(sprite_row & (0x80 >> col)) != 0` is asking if that pixel in the sp
 
 If it's off we don't do anything, if it's on we need to do some math to get the index of that pixel on the screen. If we only looked at $V_x$ and $V_y$ we would face the risk of pixels being drawn outside of the screen and since it's specified that these should wrap, we have to make sure we keep it within these bounds, by doing that operation `(vx + col + (vy + row) * 64) % (64 * 32)`, where the first part just gives us a two dimensional value (coordinate) in a single value that we have in our display array.
 
-We then check if the current display pixel at that index is ON, and if is, set the $VF$ register to 1. The main operation here is the `self.display\[pixel_index\] ^= true`, which as specified, **XORs** that display position with 1.
+We then check if the current display pixel at that index is ON, and if is, set the $VF$ register to 1. The main operation here is the `self.display[pixel_index] ^= true`, which as specified, **XORs** that display position with 1.
 
 This is pretty much it for the instructions part, and therefore, for 90% of the project. We'll get back to this **Chip-8.rs** file soon but for now it's done!! Remember, go check the rest of the instructions if you need help, in my github page, although I urge you to try and do them yourself if you're new to these things, it'll greatly help your understanding.
 
