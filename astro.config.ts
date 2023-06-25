@@ -14,7 +14,7 @@ export default defineConfig({
 			wrap: false,
 		}
 	},
-	site: "https://mcaramalho.com",
+	site: "https://r3zz.io",
 	integrations: [
 		mdx({
 			remarkPlugins: [remarkMath],
