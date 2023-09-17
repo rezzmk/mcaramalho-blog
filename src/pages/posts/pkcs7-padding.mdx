@@ -11,10 +11,10 @@ seoMetaDescription: 'Primer on how PKCS#7 works with code examples'
 
 # Padding primer
 
-In a cryptography context, padding is just the practice of adding some bytes to the beginning, middle, or the end of a certain message, 
-prior to encryption. This is widely used in block ciphers, which will split your message into multiple blocks and encrypt them.
+In a cryptography context, padding is just the practice of adding some bytes to the beginning, middle, or end of a certain message, 
+before encryption. This is widely used in block ciphers, which will split your message into multiple blocks and encrypt them.
 
-In other contexts, it's still similar, it's all about adding something, somewhere, in order to make the resultant size predictable, 
+In other contexts, it's still similar, it's all about adding something, somewhere, to make the resultant size predictable, 
 you can even think about a pillow cushion that you fill to a certain point and the analogy will still work.
 
 # Scenario
@@ -22,27 +22,27 @@ you can even think about a pillow cushion that you fill to a certain point and t
 For the sake of argument, let's say we want to encrypt a message of length 16 bytes, using a block cipher in ECB (Electronic Code Book) mode.
 It looks easy enough, if we assume each block to be 8 bytes, we need to process 2 blocks, so far so good.
 
-Now, what happens if the message has 17 bytes? Well, we can no longer split it in two blocks of 8, 
-because there would be 1 missing byte. **if you're thinking padding, you're on the right track.** 
-Basically, in order to encrypt this in a way that also allows for decryption, that is, when you decrypt 
+Now, what happens if the message has 17 bytes? Well, we can no longer split it into two blocks of 8, 
+because there would be 1 missing byte. **If you're thinking padding, you're on the right track.** 
+To encrypt this in a way that also allows for decryption, that is, when you decrypt 
 you get the message without any additional padding, we'll need some padding logic to accommodate this.
 
 | If you don't know what I meant with **ECB**, you can read [this](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Electronic_codebook_(ECB))
 
 # Solution (PKCS#7)
 
-There are multiple approaches to solving our padding problem, but in this post we'll focus on **PKCS#7**, which is one of the standard ones.
+There are multiple approaches to solving our padding problem, but in this post, we'll focus on **PKCS#7**, which is one of the standard ones.
 
 **PKCS** stands for "Public Key Cryptography Standards". In our case, we're focusing on a padding standard with **PKCS#7**. I think 
-it's best to read the [wiki](https://en.wikipedia.org/wiki/PKCS) on this, as there a lot of different versions out there.
+it's best to read the [wiki](https://en.wikipedia.org/wiki/PKCS) on this, as there are a lot of different versions out there.
 
-There's also **PKCS#5** which assumes blocks of size 8, where #7 works with other sizes. In reality, they are the same.
+There's also **PKCS#5** which assumes blocks of size 8, whereas #7 works with other sizes. In reality, they are the same.
 
 The important rules for **PKCS#7** are as follows:
 
 1) We will **always** have padding, even if the message to be padded is a multiple of our block size, e.g. a message of 8 bytes, 
-with block size 8, will end up padded all the way to 16 bytes. Alternatively, a 16 byte message will end up 
-with 24 bytes and a 15 byte message will get padded to 16 bytes. So, at least you will **always** have 1 or more bytes of padding.
+with block size 8, will end up padded to 16 bytes. Alternatively, a 16-byte message will end up 
+with 24 bytes and a 15-byte message will get padded to 16 bytes. So, at least you will **always** have 1 or more bytes of padding.
 2) All padded bytes will contain the same value, equal to the number of bytes of padding, 
 e.g. 8 bytes of padding means the padded message will have 8 bytes with value 8.
 3) When unpadding, all we do is look at the last byte, get its value, and remove that number of 
@@ -52,8 +52,8 @@ These are the rules, and it's pretty much it.
 
 # Coding time!
 
-The coding for this is actually quite easy, the most important part is to calculate the padding value. 
-We'll do this in C, but you can use this logic on any programming language you want.
+The coding for this is quite easy, the most important part is to calculate the padding value. 
+We'll do this in C, but you can use this logic in any programming language you want.
 
 ```c
 uint8_t pad_value = 0;
@@ -100,7 +100,7 @@ uint8_t *pad(uint8_t *input, uint64_t input_len, uint8_t block_sz, uint64_t *pad
 ```
 
 Now, all we need is a way to reverse this process. If you don't want extra memory allocations and processing 
-time from copying values, technically, you could just read the padded message all way to the end, 
+time from copying values, technically, you could just read the padded message all the way to the end, 
 excluding those padding bytes, by calculating the final index with **(total size - last byte value) - 1**. 
 If you need an actual new "instance" of the unpadded message, you can do something like:
 

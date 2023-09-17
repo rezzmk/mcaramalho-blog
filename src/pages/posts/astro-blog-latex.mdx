@@ -11,21 +11,21 @@ seoMetaDescription: 'How to add LaTeX Math rendering to Astro blog posts'
 
 # Objective
 
-Hi there, in this post I'll be explaining a way to render LaTeX Math symbols, and consequently, any formulas or expressions you want, on an Astro blog post.
+Hi there, in this post, I'll be explaining a way to render LaTeX Math symbols, and consequently, any formulas or expressions you want, on an Astro blog post.
 
-We'll be taking advantage of a couple plugins to achieve this. Our end result will allow us to write something like:
+We'll be taking advantage of a couple of plugins to achieve this. Our result will allow us to write something like:
 
 ```text
 $f(x) = 2x$
 ```
 
-to achieve $f(x) = 2x$. I think we can all agree that LaTeX typesetting's really one of the best out there, thus its popularity.
+to achieve $f(x) = 2x$. I think we can all agree that LaTeX typesetting is one of the best out there, thus its popularity.
 
 If you just want the solution, jump to [#Solution](#solution).
 
 #### MDX Plugins
 
-I'm assuming you already know what **MDX** is since you're here, but if you don't, it's basically markdown on steroids, allowing you to embed JS components in it.
+I'm assuming you already know what **MDX** is since you're here, but if you don't, it's markdown on steroids, allowing you to embed JS components in it.
 You can read more [here](https://mdxjs.com/).
 
 What you may not know is that it supports plugins. We care about two specific families of plugins, **remark** and **rehype**.
