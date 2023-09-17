@@ -13,7 +13,7 @@ Have you ever tried to read through [Microsoft's stuff on Dependency Injection](
 just to find yourself with more questions than you began with? Well, 
 in this post I'll try to explain the concept of “injecting dependencies”, as well as the different lifetimes for said dependencies you can configure on your projects.
 
-# What is Depedency Injection
+# What is Dependency Injection
 
 Well, in basic terms, it's just passing the properties of a certain object into another. Let me quickly illustrate this concept with a real-world example:
 
@@ -26,11 +26,11 @@ public class MyAwesomeController : Controller {
 }
 ```
 
-Ok, so you may have done something like this in the past, where you've got a class and in its constructor, you instantiate some service you need. This service can be anything, 
+Okay, so you may have done something like this in the past, where you've got a class and in its constructor, you instantiate some service you need. This service can be anything, 
 like a database context (Entity Framework likes those).
 
-The problem with this, as you can imagine, is that the `IAwesomeService` is scoped to this controller instance. Now, this may actually be the desired behavior, but usually, 
-on these type of services you want a single instance (more on this later) to run throughout your application, that means you may want to “share” this service with every single class instance that uses it.
+The problem with this, as you can imagine, is that the `IAwesomeService` is scoped to this controller instance. Now, this may be the desired behavior, but usually, 
+on these types of services, you want a single instance (more on this later) to run throughout your application, which means you may want to “share” this service with every single class instance that uses it.
 
 Now, let's refactor the code above to take advantage of dependency injection:
 
@@ -44,16 +44,16 @@ public class MyAwesomeController : Controller {
 ```
 
 You see it looks almost the same, but now we're passing the service as a constructor argument. If you were to try and run this code like this, you'd see one of two things: 
-1) Compiler doesn't let you compile
+1) The Compiler doesn't let you compile
 2) It'll throw a `NullReferenceException` the moment you try to access the service
 
 So, the next step is to make sure we understand how we can configure our project to have this dependency, i.e. `IAwesomeService` properly passed to the controller, or any other class we want to take the same approach on.
 
-On .Net Core, this is really simple to do, because we can take advantage of some methods that will effectively “register” our dependencies so they're properly injected everywhere.
+On .Net Core, this is simple to do, because we can take advantage of some methods that will effectively “register” our dependencies so they're properly injected everywhere.
 
 # Registering Dependencies
 
-In order to register a dependency, you can do the following in your `Startup` class:
+To register a dependency, you can do the following in your `Startup` class:
 
 ```csharp
 public void ConfigureServices(IServiceCollection services){
@@ -63,7 +63,7 @@ public void ConfigureServices(IServiceCollection services){
 }
 ```
 
-You see the `AddScoped()` call there? Well, that's not the only way to do this. There are *3 different ways to register dependencies* like this on .Net Core, which are `AddScoped()`, `AddTransient()` and `AddSingleton()`.
+Do you see the `AddScoped()` call there? Well, that's not the only way to do this. There are *3 different ways to register dependencies* like this on .Net Core, which are `AddScoped()`, `AddTransient()` and `AddSingleton()`.
 
 The difference between them is the lifetime of the object that will be created and injected into your classes, e.g. Controllers.
 
@@ -116,11 +116,11 @@ public interface ISynthesizer {
 }
 ```
 
-For the sake of argument, all this will do is require you to make an implementation of a Synthesizer that takes some text and synthesizes it into some audio you can save or do whatever you want with.
+For the sake of argument, all this will do is require you to implement a Synthesizer that takes some text and synthesizes it into some audio you can save or do whatever you want with.
 
 Now, there are multiple services out there that do Text to Speech, from Google TTS, Amazon Polly, Microsoft Speech etc…
 You may want to try out different TTS implementations and as you can imagine, if you were to change, you'd have to go over every class you're injecting the Synthesizer in and change it to the new implementation, 
-which really sucks if your codebase is any serious.
+which sucks if your codebase is any serious.
 
 ### Solution
 
@@ -135,9 +135,9 @@ public void ConfigureServices(IServiceCollection services) {
 }
 ```
 
-As you can see, you'd really just have to change the implementation being registered to whatever you want/need and you're good to go.
+As you can see, you'd just have to change the implementation being registered to whatever you want/need and you're good to go.
 
-This is really powerful, abstractions are one of the pillars of object-oriented programming, whether you like it or not, so use it!
+This is powerful, abstractions are one of the pillars of object-oriented programming, whether you like it or not, so use it!
 Not to mention this will help you tons when you're writing your unit tests (sigh).
 
 Finally, to inject your dependency wherever you want, let's say a controller, all you need is something like:
@@ -197,7 +197,7 @@ class Program {
 This way you'll always use the same instance of the class Singleton, which is created the first time you call GetInstance() on it.
 
 Now, this is all fun and games but the more astute amongst you have probably noticed this ain't thread-safe, so how do we fix it?
-If you're still in ancient land, you can use a lock for this, which I won't go into detail here because this post is already a book but I might write a post about it later.
+If you're still in an ancient land (pre-first class citizen dependency injection), you can use a lock for this, which I won't go into detail about here because this post is already a book but I might write a post about it later.
 
 Here's how you would do it (one of multiple ways):
 
@@ -223,7 +223,7 @@ public class Singleton {
             // the point where it actually runs the _instance = new Singleton(); line.
             lock (_lock) {
                 // We still need to check for null here because there's a chance that the first thread
-                // created the singleton and now you've got other threads aquiring the locks, trying to run
+                // created the singleton and now you've got other threads acquiring the locks, trying to run
                 // new Singleton(), so we check again.
                 if (_instance == null) {
                     _instance = new Singleton();
@@ -246,7 +246,7 @@ See? Quick and painless, please keep in mind this is also how you'd do it in oth
 
 Another way to do it, if you're using .NET 4 with C# 6.0 and above, is to use the `Lazy` class.
 The Lazy class is an implementation of the Lazy pattern, where you're effectively only really creating something when it's needed, 
-and this is how it would look like in your code. Please read more about this [here](https://learn.microsoft.com/en-us/dotnet/api/system.lazy-1?view=net-5.0)
+and this is how it would look in your code. Please read more about this [here](https://learn.microsoft.com/en-us/dotnet/api/system.lazy-1?view=net-5.0)
 
 ```csharp
 public class Singleton {

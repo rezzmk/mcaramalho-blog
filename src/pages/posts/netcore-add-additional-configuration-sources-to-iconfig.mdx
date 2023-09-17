@@ -39,8 +39,8 @@ The `CustomConfigurationProvider` class above inherits from `IConfigurationProvi
 ### So many things to implement, what do they do?
 
 - `GetChildKeys(…)`: If you read Microsoft's documentation for this and you're like me, you'll probably feel pretty stupid and not understand jack sh*t of what they're saying, 
-so let me explain in simpler words. You can have multiple configuration sources, each with their own keys; GetChildKeys() is used to obtain the keys of all child nodes for the 
-configuration section that the parentPath points to, which may or may not be of interest to you. Usually I just straight up return the Tahomargument that's passed to GetChildKeys() 
+so let me explain in simpler words. You can have multiple configuration sources, each with its keys; GetChildKeys() is used to obtain the keys of all child nodes for the 
+configuration section that the parentPath points to, which may or may not be of interest to you. Usually, I just straight up return the argument that's passed to GetChildKeys() 
 here but custom logic can be made, of course.
 - `GetReloadToken()`: This returns a change token in case the provider supports change tracking. If you're not supporting change tracking you might as well just return null, no problem. 
 You'll see that we're returning a CustomConfigurationToken() here, I'll explain that later.
@@ -48,9 +48,9 @@ You'll see that we're returning a CustomConfigurationToken() here, I'll explain 
 specific json structure where you just need to read and deserialize, for example, this method can do absolutely nothing. Think of it like the place you'd put your constructor logic.
 - `Set()`: I mean, this one is obvious, r..right? Just put your config set logic here, if applicable. There might be situations when the configuration sources are just read-only, 
 so you can either do nothing with Set() or potentially throw a custom exception alerting the user that he/she's messing it up!
-- `TryGet()`: Here you put all the actual configuration access logic. You basically set value to the output (result) and return true/false in case of success/failure.
+- `TryGet()`: Here you put all the actual configuration access logic. You set the value to the output (result) and return true/false in case of success/failure.
 
-In case you want to see some more advanced examples, Microsoft's docs is a good place to start, as they're a bit [fancier](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-5.0#environment-variables) with it.
+In case you want to see some more advanced examples, Microsoft's docs are a good place to start, as they're a bit [fancier](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?view=aspnetcore-5.0#environment-variables) with it.
 
 ### What Now?
 

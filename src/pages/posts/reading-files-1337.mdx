@@ -13,19 +13,19 @@ Hi there, in this post I'll be going through multiple layers of abstraction on h
 I'll be running everything on a Linux box, but with slight adjustments, the same could be done for Windows.
 
 I'm very interested in low-level systems, and understanding how the things we take for granted work gives me joy.
-One of such things is simply reading a file, depending on the language, we can go from being able to read a file in a one-liner, or in very confusing ways, in languages like C.
+One such thing is simply reading a file, depending on the language, we can go from being able to read a file in a one-liner, or very confusing ways, in languages like C.
 
 If there's one thing I would like for the reader to take from this post, is that all these programming languages will eventually go to the same level, the kernel, to ask for its contents.
 After these requests get to the kernel, one level deeper we have our CPU instructions and for this, we'll look at some assembly. If you don't know what the kernel is, no worries, I'll give a high-level explanation of it.
 
-The requests we do to the kernel are called system calls, or syscalls, and they're the way our software can ask for things that it inherently doesn't have access to, such as files.
+The requests we make to the kernel are called system calls, or syscalls, and they're the way our software can ask for things that it inherently doesn't have access to, such as files.
 
 # The Kernel
 
 The Kernel is essentially the core of our operating system. This is true for both Windows and Unix systems, among others.
-**Not all operating systems have a kernel, but those we care about do. There's a good article about Kernel-less operating systems [here](https://dl.acm.org/doi/pdf/10.5555/1082161.1082193) but it's besides the point of this post**
+**Not all operating systems have a kernel, but those we care about do. There's a good article about Kernel-less operating systems [here](https://dl.acm.org/doi/pdf/10.5555/1082161.1082193) but it's beside the point of this post**
 
-Conceptually, the Kernel is the bridge between the software we write/use, and the bare-metal components on our computer. For instance, you can't really write code that directly tells the CPU to run a certain instruction, this is always done by the Kernel, via syscalls.
+Conceptually, the Kernel is the bridge between the software we write/use and the bare-metal components on our computer. For instance, you can't really write code that directly tells the CPU to run a certain instruction, this is always done by the Kernel, via syscalls.
 
 There are also different types of kernels, such as monolithic, microkernels and hybrid. Unix uses the monolithic approach, where everything runs in a single address space. Microkernels will run pretty much everything in something called User Space, which makes it more modular, but at the same time, usually slower.
 Then we have hybrid kernels, such as Windows's, where it's a little bit of both.
@@ -53,7 +53,7 @@ The relevance of these **Protection Rings** is knowing that, because of them, we
 
 # Coding Time!
 
-Ok, let's start with the actual purpose of this post, which is to read a file in different levels of difficulty. We can start by using a programing language like python, which is pretty high level.
+Okay, let's start with the actual purpose of this post, which is to read a file in different levels of difficulty. We can start by using a programming language like python, which is pretty high-level.
 
 First, let's create a file for testing:
 
@@ -70,13 +70,13 @@ with open('readme.txt') as f:
     print(f.readlines())
 ```
 
-**By the way, stdout is seen as a file, so when we print something to the screen, we're basically writing what we want to this "file". stdout, alongside stdin (for inputs), and stderr (for errors) are called streams**
+**By the way, stdout is seen as a file, so when we print something to the screen, we're writing what we want to this "file". stdout, alongside stdin (for inputs), and stderr (for errors) are called streams**
 
 Running the above will yield the following:
 
 ![Python 1](/images/python1.png)
 
-So, now I want to show you something pretty cool. Remember when I mentioned that all of these programs would eventually land in the kernel, via syscalls? We can actually see what these syscalls are by using a tool called **strace**.
+So, now I want to show you something pretty cool. Remember when I mentioned that all of these programs would eventually land in the kernel, via syscalls? We can see what these syscalls are by using a tool called **strace**.
 **strace** allows you to trace system calls and signals (usually seen as interrupts as well).
 
 Using **strace** on our newly created python program, will show us some super weird output, let's focus at the end of it:
@@ -95,7 +95,7 @@ It's also why python is sluggish as hell!
 #### Rust
 
 Let's now do the same thing for Rust, and see what happens when we run it in **strace**.
-Our code looks like:
+Our code looks like this:
 
 ```rust
 use std::{
@@ -152,7 +152,7 @@ Can you spot the problem with the code above? Yeah, we're forcing the buffer all
 
 ![C1](/images/c1.png)
 
-Again, I bet you're getting tired of seeing the same syscalls over and over again! The fun part about C is that you can actually call those functions yourself. Let's do it then.
+Again, I bet you're getting tired of seeing the same syscalls over and over again! The fun part about C is that you can call those functions yourself. Let's do it then.
 
 ```c
 #include <unistd.h>
@@ -187,9 +187,9 @@ int main() {
 }
 ```
 
-Yikes, ok, so before I even tell you what's going on, note that there are some validations missing, like checking if we were actually able to open the file, by asserting if `fd != -1` and so on...
+Yikes, ok, so before I even tell you what's going on, note that some validations are missing, like checking if we were able to open the file, asserting if `fd != -1` and so on...
 
-We're using the `openat()` call now. **AT_FDCWD** tells **openat** to operate under the current working directory. **O_RDONLY** tells **openat** to open the file in readonly mode.
+We're using the `openat()` call now. **AT_FDCWD** tells **openat** to operate under the current working directory. **O_RDONLY** tells **openat** to open the file in read-only mode.
 
 ```c
 struct stat finfo;
@@ -227,13 +227,13 @@ Running **strace** on this we get:
 
 ![C2](/images/c2.png)
 
-Yeah, it's pretty much the same, I think you get the idea now, so let's go deeper to the land of the crazy.
+Yeah, it's pretty much the same, I think you get the idea now, so let's go deeper into the land of the crazy.
 
 #### Assembly
 
-Allright, this is as far as I can personally go as I still need to gain some wisdom from the gods to go below this level, but let me show you how to read a file the professional way.
+Alright, this is as far as I can personally go as I still need to gain some wisdom from the gods to go below this level, but let me show you how to read a file the professional way.
 
-I'm using **[nasm](https://nasm.us/)** here, if you're insane you can try other methods. **nasm** is a portable x86 assembler, key word is **portable** :)
+I'm using **[nasm](https://nasm.us/)** here, if you're insane you can try other methods. **nasm** is a portable x86 assembler, keyword is **portable** :)
 
 You may need to install this if you don't have it already, with:
 
@@ -249,7 +249,7 @@ On the site I've just mentioned, let's get the relevant syscalls instruction num
 - **open():** 2
 - **write():** 1
 
-I know this doesn't make sense now, unless you're used to this type of coding, but let me first scare you more with the entire code to read the file, in assembly:
+I know this doesn't make sense now unless you're used to this type of coding, but let me first scare you more with the entire code to read the file, in assembly:
 
 ```asm
             global _start
@@ -312,12 +312,12 @@ This is the way we can make a syscall. I think the best way to explain this is b
 
 ![linux-system-table-exit](/images/linux-system-table-exit.png)
 
-When you search and find the syscall you want (use the Filter prompt or **CTRL-F**), you can double click it to get some more information, as seen above.
+When you search and find the syscall you want (use the Filter prompt or **CTRL-F**), you can double-click it to get some more information, as seen above.
 The important parts here are:
 - The **%rax%** value: This is the syscall number we need, looking at the code above, you can see it there in the first **mov** instruction.
-- What you see after you double click the syscall are the arguments you can pass. Reading it, in this case, tells you "Pass me the error code for the exit function, in the register **rdi**".
+- What you see after you double-click the syscall are the arguments you can pass. Reading it, in this case, tells you "Pass me the error code for the exit function, in the register **rdi**".
 
-So, now we know how to read these thing and apply them. Dissecting the snippet above a little more we get:
+So, now we know how to read these things and apply them. Dissecting the snippet above a little more we get:
 
 ```asm
 exit:
@@ -382,7 +382,7 @@ I leave it to you to go look at the arguments and where to set them, as we did w
 
 Our **rdi** (**fd (file descriptor)**) is set to **[rsp+50]**. Remember we pushed the return of `open()` (the file descriptor) onto the stack. However, we also reserved 50 bytes which were also pushed onto the stack, so to access the **fd**, we calculate the **stack head + 50**, effectively getting us to the value we want.
 
-We set the **rsi** register to our stack pointer (the **rsp**), which points to the tippity top of it.
+We set the **rsi** register to our stack pointer (the **rsp**), which points to the tippy top of it.
 
 We want to allocate 50 bytes to our file so we set that to the **rdx** register.
 
@@ -437,9 +437,9 @@ Running our code with **strace** again will leave you speechless (maybe not), if
 
 ![asm2](/images/asm2.png)
 
-**This is why you really can't go faster then assembly :)**
+**This is why you really can't go faster than assembly :)**
 
-This is it, hopefully this post helps give you a sense of how deep you can easily go, in doing simple things such as reading a file. It's not rocket science.
+This is it, hopefully, this post helps give you a sense of how deep you can easily go, in doing simple things such as reading a file. It's not rocket science.
 
 Especially this last part, if you understand how to use these syscalls (and the others that exist), you can do some pretty cool things.
 

@@ -12,9 +12,9 @@ seoMetaDescription: 'Entity Framework Core Adding WITH (NOLOCK) on all queries (
 # Scenario
 
 Let's say you have a project using **EF Core**, that's making a bunch of **SQL SELECT** queries, for statistics purposes.
-The tables that you're selecting from, may have a lot of contention, and since you may not need perfectly accurate results 100% of the time,
+The tables that you're selecting from may have a lot of contention, and since you may not need perfectly accurate results 100% of the time,
 sometimes you'd use something like **"SELECT * FROM YOUR_TABLE WITH (NOLOCK)"**, which will change the isolation level to `read uncommited`. 
-This isolation level allows you to read those records even if there are uncommited transactions on that table.
+This isolation level allows you to read those records even if there are uncommitted transactions on that table.
 
 # Solution
 
@@ -44,7 +44,7 @@ Looking at the code above, we just need to override the `VisitTable(...)` method
 
 > A `TableExpression` represents a table or a view, where the `Expression` type is the basis for all types that represent expression tree nodes.
 
-Let's not get into details here, basically, at this stage you're half way there.
+Let's not get into details here, basically, at this stage you're halfway there.
 You should just focus on the `Sql.Append(@" WITH(NOLOCK)")` part, which will append what we want to the current
 **SQL Command Builder** in context.
 
@@ -66,7 +66,7 @@ public class WithNoLockQueryGeneratorFactory : SqlServerQuerySqlGeneratorFactory
 The relevant part here is the `Create()` method, 
 which returns a new instance of our newly created **SQL Query Generator** (`WithNoLockQueryGenerator`)
 
-Now, there's only one thing left to do, which is specifying that you want to replace the default **SQL Query Generator Factory**
+Now, there's only one thing left to do, which is specify that you want to replace the default **SQL Query Generator Factory**
 with our own. For this, all you need is:
 
 ```csharp
@@ -110,5 +110,5 @@ public class WithNoLockQueryGeneratorFactory : SqlServerQuerySqlGeneratorFactory
 }
 ```
 
-This is it, again, be careful as it may stop working at any given time, however, it's really the only 
+This is it, again, be careful as it may stop working at any given time, however, it's the only 
 proven way to do it that I've found. If you know of any other, please do let me know :)

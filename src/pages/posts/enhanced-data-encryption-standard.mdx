@@ -9,12 +9,12 @@ tags: ["crypto", "DES", "poc"]
 seoMetaDescription: 'Enhanced Data Encryption Standard'
 ---
 
-Let me preface this whole post by saying this idea was developed purely for exploration purposes, in fact, this was a proposed project to a class of Applied Cryptography that I'm attending in a Cybersecurity Master's, so it's mostly academic, without the rigor part. It does, however, show that some tweaks here and there can make a difference, in this case, in terms of **performance and security** which is pretty much what we want in encryption algorithms.
+Let me preface this whole post by saying this idea was developed purely for exploration purposes, as this was a proposed project for a class of Applied Cryptography that I'm attending in a Cybersecurity Master's, so it's mostly academic, without the rigor part. It does, however, show that some tweaks here and there can make a difference, in this case, in terms of **performance and security** which is pretty much what we want in encryption algorithms.
 
 I'll start by giving a simple primer on the **Data Encryption Standard**, if you already know how it works you can jump to the right place by clicking [here](#a-better-des)
 
-All code shown can be found at a couple repositories that implement this improved DES.
-These implementations differ only on the programming languages used, C and Rust:
+All code shown can be found in a couple of repositories that implement this improved DES.
+These implementations differ only in the programming languages used, C and Rust:
 
 - **[C](https://github.com/rezzmk/E-DES)**
 - **[Rust](https://github.com/rezzmk/RustyEDES)**
@@ -23,17 +23,17 @@ These implementations differ only on the programming languages used, C and Rust:
 
 Before we dive into a possibly better Data Encryption Standard, referred to as DES from now on, it's important to understand the basics of it.
 
-DES is a symmetric-key encryption algorithm, developed in the early 1970s. It uses 56 bit keys and, most importantly, something called Substitution Boxes, which I'll refer to as S-Boxes from now on. It's a block cipher algorithm, meaning your message will be split into multiple blocks (8 bytes, in DES) and then encrypted using one of multiple block cipher modes, such as Electronic Code Book, Cipher Block Chaining, etc... which you can read about [here](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation).
+DES is a symmetric-key encryption algorithm, developed in the early 1970s. It uses 56-bit keys and, most importantly, something called Substitution Boxes, which I'll refer to as S-Boxes from now on. It's a block cipher algorithm, meaning your message will be split into multiple blocks (8 bytes, in DES) and then encrypted using one of multiple block cipher modes, such as Electronic Code Book, Cipher Block Chaining, etc. which you can read about [here](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation).
 
 > In symmetric-key encryption algorithms, you'll essentially have one key, which is shared by both parties present in the encryption/decryption of a message.
 
-I really urge you to read some documentation on DES, such as the wonderful [wiki](https://en.wikipedia.org/wiki/Data_Encryption_Standard) page on it, seriously, wikipedia has really good cryptography content.
+I urge you to read some documentation on DES, such as the wonderful [wiki](https://en.wikipedia.org/wiki/Data_Encryption_Standard) page on it, seriously, wikipedia has really good cryptography content.
 
-DES is no longer used in practice (I hope), because it's just not secure anymore. The insecurity of DES stems from the fact it uses really short keys, at 56 bits only, as well as being vulnerable to certain attacks exploring its S-Boxes, because they're known to everyone.
+DES is no longer used in practice (I hope) because it's just not secure anymore. The insecurity of DES stems from the fact it uses really short keys, at 56 bits only, as well as being vulnerable to certain attacks exploring its S-Boxes, because they're known to everyone.
 
 #### Feistel Networks
 
-DES is an implementation of something called a **Feistel Cipher**. Often, you'll see this contruction named **Feistel Network**, because it 
+DES is an implementation of something called a **Feistel Cipher**. Often, you'll see this construction named **Feistel Network**, because it 
 repeats a process multiple times, or **rounds**.
 
 At its core, a **Feistel Network** will have a function that's run multiple times (rounds), that takes two inputs:
@@ -49,12 +49,12 @@ Here's a view of this in action:
 
 #### S-Boxes
 
-At their core, S-Boxes, or Substitution Boxes are simply arrays of values that are used to obscure the connection between the end result, call it ciphertext, and the Key. Normally, they will take a certain number of **$n$** bits and convert them into **$m$** bits. **$n$** can be different than **$m$**. The reason these can be expressed as arrays of values, even though they're really matrices, whith dimension **$m\times n$**, is that they can be 
+At their core, S-Boxes, or Substitution Boxes are simply arrays of values that are used to obscure the connection between the result, call it ciphertext, and the Key. Normally, they will take a certain number of **$n$** bits and convert them into **$m$** bits. **$n$** can be different than **$m$**. The reason these can be expressed as arrays of values, even though they're matrices, with dimension **$m\times n$**, is that they can be 
 represented with vectors of length **$l=2^m$**.
 
 You can look at an example from the wiki [here](https://en.wikipedia.org/wiki/S-box).
 
-On DES, we have 8 S-Boxes, with predefined values, which you can look online. 
+On DES, we have 8 S-Boxes, with predefined values, which you can look at online. 
 
 #### P-Boxes
 
@@ -67,7 +67,7 @@ Well, now that you have a sense (hopefully) of S-Boxes, Feistel Networks and the
 ![image](/images/DES_FLOW_DIAGRAM.png)
 *wikipedia image for the DES Feistel Function*
 
-So, let's dissect the image! You see that the first thing it does is to get half the block and run it through an **E** process. This stands for **Expansion** and it's basically a process in which half of those bits (16) will be duplicated, resulting in 48 bits total. This result is then xored with the round key (subkey) and we're left with a 48 bit value.
+So, let's dissect the image! You see that the first thing it does is to get half the block and run it through an **E** process. This stands for **Expansion** and it's a process in which half of those bits (16) will be duplicated, resulting in 48 bits total. This result is then xored with the round key (subkey) and we're left with a 48-bit value.
 
 Now, this value is split into 8 parts of 6 bits, and each part is sent to an S-Box. As you've seen earlier, these will produce **m** bits from $ n $ bits, in this case, they produce 4 bits of output from 6 of input.
 
@@ -79,15 +79,15 @@ Finally, these 32 resultant bits are reordered based on a permutation rule. This
 
 Now we get to the fun part, let's explore a way of making DES more secure by doing two things:
 1) Increase key size to 256 bits
-2) Use 16 S-Boxes of 256 bytes each, instead of 8. Make these S-Boxes Key-Dependent, Deterministic, and not depend on each other
+2) Use 16 S-Boxes of 256 bytes each, instead of 8. Make these S-Boxes Key-Dependent, Deterministic, and not dependent on each other
 
 **By the way, some welcome side-effects of this is that we won't need P-Boxes anymore, as well as no more key expansions, even simplifying our implementation**
 
 Let's continue, point 1) is really easy, just make the key larger. Point 2) however, is a bit more tricky so let's tackle it.
 
-We need a way to make the S-Boxes based on our key, and they have to be deterministic, so both parties can generate exactly the same ones. We also need to find a way to make these Key-Dependent S-Boxes not depend on each other, which is not hard to do if we just use different keys and these can be obtained from a main key quite easily.
+We need a way to make the S-Boxes based on our key, and they have to be deterministic, so both parties can generate the same ones. We also need to find a way to make these Key-Dependent S-Boxes not depend on each other, which is not hard to do if we just use different keys and these can be obtained from a main key quite easily.
 
-Hopefully, since we're getting rid of quite a bit of processing from DES, by removing the permutation and expansion parts, we should effectively get a more performant algorithm, as well as more secure since 256 bit keys are pretty hard to crack and the S-Boxes won't be known beforehand.
+Hopefully, since we're getting rid of quite a bit of processing from DES, by removing the permutation and expansion parts, we should effectively get a more performant algorithm, as well as more secure since 256-bit keys are pretty hard to crack and the S-Boxes won't be known beforehand.
 
 So, let's craft our solution...
 
@@ -118,11 +118,11 @@ uint8_t sbox = {
 
 So, we have 256 bytes, each byte ranges from **0x00** to **0xff** and the only way to change the S-Box, knowing we cannot have repetitions inside it, is to **shuffle it** somehow. Some people will probably find a **Pseudo Random Number Generator**, because these are deterministic, and find a way to connect a key to it, allowing them to have that value as the seed for a shuffling algorithm. You repeat this 16 times, for each S-Box, with different subkeys and voila! you got your boxes.
 
-In this post, I'll be doing this a little differently, on my research, I came across a great article by *Kazys Kazlauskas*, *Gytis Vaicekauskas* and *Robertas Smaliukas* with the name of "An Algorithm for Key-Dependent S-Box Generation in Block Cipher System", which you can find [here](https://informatica.vu.lt/journal/INFORMATICA/article/753/info).
+In this post, I'll be doing this a little differently, on my research, I came across a great article by *Kazys Kazlauskas*, *Gytis Vaicekauskas* and *Robertas Smaliukas* named "An Algorithm for Key-Dependent S-Box Generation in Block Cipher System", which you can find [here](https://informatica.vu.lt/journal/INFORMATICA/article/753/info).
 
 The proposed algorithm to shuffle these S-Boxes, based on a key is as follows:
 
-**The key:** You take a secret key and put it in a vector $Key$ of **$l$** unsigned bytes, from the interval $[0, 255]$. Take the 256 bits key **"SuperSecretKeySuperSecretKey1234"** as an example. I'll explain later how we make sure every key is 256 bits, but for now assume a user provided this key on some sort of prompt, to encrypt a message. Now, the **C** code for this could look something like:
+**The key:** You take a secret key and put it in a vector $Key$ of **$l$** unsigned bytes, from the interval $[0, 255]$. Take the 256-bit key **"SuperSecretKeySuperSecretKey1234"** as an example. I'll explain later how we make sure every key is 256 bits, but for now assume a user provided this key on some sort of prompt, to encrypt a message. Now, the **C** code for this could look something like:
 
 ```c
 uint8_t *key = "SuperSecretKeySuperSecretKey1234";
@@ -167,7 +167,7 @@ With our initial value $j$, our loop index $i$ and the key length $l$, we can do
 $k \leftarrow (sbox(i) + sbox(j)) \space mod \space l\\$
 $j \leftarrow (j + key(k)) \space mod \space 256$
 
-So, we're calculting the remainder of the sum of the values of our S-Box at the indexes $i$ and $j$ with $l$.
+So, we're calculating the remainder of the sum of the values of our S-Box at the indexes $i$ and $j$ with $l$.
 Then, with this, we're setting $j$ to the sum of $j$ with the value of our key at index $k$, mod 256.
 
 Now, comes the actual shuffle/swap part. We have two indexes $i$ and $j$, so we'll swap the values of our S-Box at these positions.
@@ -177,7 +177,7 @@ $sbox(i) \leftarrow sbox(j)\\$
 $sbox(j) \leftarrow p\\$
 $end \space loop$
 
-We're done! We have successfully shuffled an S-Box. I know the explanation above is quite dense for people that aren't used to reading mathy thing and code speaks for itself, so let me present all of it in code:
+We're done! We have successfully shuffled an S-Box. I know the explanation above is quite dense for people who aren't used to reading mathy things and code speaks for itself, so let me present all of it in code:
 
 ```c
 void shuffle_sbox(uint8_t sbox[], uint8_t *key) {
@@ -201,7 +201,7 @@ void shuffle_sbox(uint8_t sbox[], uint8_t *key) {
 }
 ```
 
-It's pretty simple right?
+It's pretty simple, right?
 
 #### Round Keys
 
@@ -225,11 +225,11 @@ if (sbox_index > 0) {
 
 We're also checking the `sbox_index` is greater than 0, because we don't modify the key for the first round.
 
-**Please note, this is really not the best way to do this, it has some security vulnerabilities in and of itself, a better way would be to use something similar to the [AES Key Scheduler!](https://en.wikipedia.org/wiki/AES_key_schedule)**
+**Please note, this is not the best way to do this, it has some security vulnerabilities in and of itself, a better way would be to use something similar to the [AES Key Scheduler!](https://en.wikipedia.org/wiki/AES_key_schedule)**
 
 #### Guaranteeing 256 bit keys
 
-Well, this one is actually not complicated at all, all I'm doing is using **SHA256** hashing on top of whatever key is provided, this way, we always get a 256 bit string no matter what. We use the hashed version as our key, easy peasy.
+Well, this one is not complicated at all, all I'm doing is using **SHA256** hashing on top of whatever key is provided, this way, we always get a 256-bit string no matter what. We use the hashed version as our key, easy peasy.
 
 In C, the way I do this is by using the **openssl/sha.h** library, as such:
 
@@ -385,9 +385,9 @@ void gen_sbox(uint8_t sbox[], uint8_t *key, uint8_t sbox_idx) {
 }
 ```
 
-That's a whole lot of code! Welcome to the C Programming language :) By the way, you'll see that we're using padding as well, which is needed. The code for that, as well as an explanation on how it works can be found in a post I've done about **PKCS#7**, [here](https://mcaramalho.com/posts/pkcs7-padding/)
+That's a whole lot of code! Welcome to the C Programming language :) By the way, you'll see that we're using padding as well, which is needed. The code for that, as well as an explanation of how it works, can be found in a post I've done about **PKCS#7**, [here](https://mcaramalho.com/posts/pkcs7-padding/)
 
-To decrypt, it's very similar, we just process the block in inverse form. Also, this code below could be simplified, that is, you don't need two functions to process blocks since the only thing that differs is that left will be swapped with right. 
+To decrypt, it's very similar, we just process the block in inverse form. Also, this code below could be simplified, that is, you don't need two functions to process blocks since the only thing that differs is that the left will be swapped with the right. 
 
 Additionally, note that here, instead of going through the S-Boxes from first to last, we'll go from last to first.
 
@@ -454,14 +454,14 @@ This is it! Please remember all this code's in a repository at [E-DES](https://g
 
 To benchmark, I've run an encryption + decryption round, on a 4096B random buffer (from **/dev/urandom**), 100k times and measured the Wall-Time of execution.
 
-This process was ran with **DES**, using **openssl**, as well as the improved version, comparing the two.
+This process was running with **DES**, using **openssl**, as well as the improved version, comparing the two.
 
 I will spare you the code for the benchmark, it's [here](https://github.com/rezzmk/E-DES/blob/main/speed.c) if you want to look at it.
 
-Turns out that, on average, this new implementation is about **2.2x times faster!**. For fun, I've created a wrapper of my C implementation to use in Rust, and ran it with **Criterion**, a benchmarking framework, here's the graphical overview of **DES vs E-DES**. By the way, E-DES just stands for Enhanced DES.
+Turns out that, on average, this new implementation is about **2.2x times faster!**. For fun, I've created a wrapper of my C implementation to use in Rust, and ran it with **Criterion**, a benchmarking framework, here's the graphical overview of **DES vs. E-DES**. By the way, E-DES just stands for Enhanced DES.
 
 ![Image](/images/bench.png)
-*Criterion's benchmark DES vs E-DES C implementation*
+*Criterion's benchmark DES vs. E-DES C implementation*
 
 I'd say it's blazing fast, but that's Rust's thing, in which case you can check the results in its
  [repo](https://github.com/rezzmk/RustyEDES)
@@ -470,6 +470,6 @@ I'd say it's blazing fast, but that's Rust's thing, in which case you can check 
 
 This is not anything you, or anyone else should use in any real scenario, at least unless someone stress tests it to oblivion and makes sure it's good. It was a really fun little project that had me learning a bunch of things I didn't know existed. 
 
-I decided to create this post to journal the process of creating this, I know it's convoluted and I may have said some weird things in here, since I'm by no means a crypto expert, but I hope it's as interesting to you as it is to me.
+I decided to create this post to journal the process of creating this, I know it's convoluted and I may have said some weird things in here since I'm by no means a crypto expert, but I hope it's as interesting to you as it is to me.
 
 Thanks for reading!

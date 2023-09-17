@@ -11,7 +11,7 @@ seoMetaDescription: 'Windows Message Loops and Windows Hooks'
 
 Hi there, in this post I'll be going through how to install a Windows Hook and monitor certain events. This is both useful and dangerous, since it's the basis for a lot of bad stuff out there, like keyloggers and other similar <del>cool</del> awful things.
 
-Before we dive in the hooking part, I'll start with the basics of how the **Windows Operating System** handles the creation of windows. This applies for other things, such as keyboard and mouse inputs, and so on...
+Before we dive into the hooking part, I'll start with the basics of how the **Windows Operating System** handles the creation of windows. This applies to other things, such as keyboard and mouse inputs, and so on...
 
 I'll start by giving a primer on **Window Messages**, which is the backbone of knowledge needed to understand **Windows Hooks**, so let's start!
 
@@ -19,21 +19,21 @@ This post assumes you already have some knowledge of **C++** and how to start pr
 
 # A primer on Window Messages
 
-In case it wasn't obvious from its name, most things on **Windows (The operating system)** are represented in the form of window objects. On my previous [post](https://mcaramalho.com/posts/reading-files-1337/) I go through this idea that there are some abstraction layers when it comes to developing software, and that most of what we do will eventually get to a level where the actual operating system's kernel will need to act.
+In case it wasn't obvious from its name, most things on **Windows (The operating system)** are represented in the form of window objects. In my previous [post](https://mcaramalho.com/posts/reading-files-1337/) I go through this idea that there are some abstraction layers when it comes to developing software and that most of what we do will eventually get to a level where the actual operating system's kernel will need to act.
 
 With this idea in mind, let's introduce a new topic, called **Window Messages**. 
 
 #### Windows API
 
-The **Win32 API**, also known in the streets as **The Windows API**, because of more modern versions of windows, is what lets us build applications that can seamlessly run under multiple versions of **Windows**. So, basically, every time your application creates a new window with some pretty buttons on it, eventually it'll take advantage of this API to create and render it.
+The **Win32 API**, also known in the streets as **The Windows API**, because of more modern versions of Windows, is what lets us build applications that can seamlessly run under multiple versions of **Windows**. So, basically, every time your application creates a new window with some pretty buttons on it, eventually it'll take advantage of this API to create and render it.
 
-I won't go into detail on exactly what this API supports, but if you've ever encountered it, you probably know how chaotic it can be. Just go through any low level GUI creation tutorial for Windows and you'll see what I mean, but luckily, in this post I'm mostly focusing on hooking, which I'll explain in a bit.
+I won't go into detail on exactly what this API supports, but if you've ever encountered it, you probably know how chaotic it can be. Just go through any low-level GUI creation tutorial for Windows and you'll see what I mean, but luckily, in this post, I'm mostly focusing on hooking, which I'll explain in a bit.
 
 #### Messages
 
 **Windows** uses something called messages, which are "orders" that fly around the OS every time we do something, like moving the mouse, typing on our keyboards, dragging windows, creating windows, destroying windows, resizing windows... you get the idea.
 
-These messages are sent in the thousands, if you have a lot of activity going around, you'll be dealing with millions of messages in no time, which is also one of the reasons operating systems can feel sluggish at times, since they need to be processed and handled pretty much in real time or the user will see a noticeable delay.
+These messages are sent in the thousands, if you have a lot of activity going around, you'll be dealing with millions of messages in no time, which is also one of the reasons operating systems can feel sluggish at times since they need to be processed and handled pretty much in real-time or the user will see a noticeable delay.
 
 If you have **Visual Studio** installed, one thing you can do is open a Developer Command Prompt from there and start an application called [**Spy++**](https://learn.microsoft.com/en-us/visualstudio/debugger/introducing-spy-increment?view=vs-2022), as such:
 
@@ -43,7 +43,7 @@ C:\Program Files\Microsoft Visual Studio\2022\Community>spyxx.exe
 
 This tool allows you to see inside the chaos of Windows. When you open it, click the little cogwheels to get a list of running processes (multiple ways to do this) and then select a process you want, preferably one with a GUI you can mess around with.
 
-Right click on the process and select **"messages"**. It'll look something like this (using flux here):
+Right-click on the process and select **"messages"**. It'll look something like this (using flux here):
 
 ![](/images/spypp.gif)
 
@@ -53,7 +53,7 @@ If you move around you'll see a tonne of messages flying around, those are what 
 
 If you've ever written a game, you know that you'll need a main loop that's effectively running all the time, and processing user input, frame rendering, points, etc... 
 
-When you create a Window, the same thing happens, although you may not see it, especially when using higher level programming languages.
+When you create a Window, the same thing happens, although you may not see it, especially when using higher-level programming languages.
 
 A Window message loop can look like this:
 
@@ -63,9 +63,9 @@ When a window is created, the `CreateWindow()` function from the **Windows API**
 
 In this loop, we'll be constantly checking if there are any messages in the queue to be processed, such as mouse input messages, like "Moved mouse pointer position to coordinates (x, y)", and so on... This happens extremely quickly.
 
-When a message is found, it's translated and dispatched to the main **WindowProc**. At this stage, it's the OS's job to work and act accordingly. Basically, you dispatch the message to the **Windows** operating system's message handler. The `TranslateMessage()` just converts the messages from the `GetMessage()` or `PeekMessage()` outputs into character messages that are understood. This call may also post new messages to the message queue, depending on the situation.
+When a message is found, it's translated and dispatched to the main **WindowProc**. At this stage, it's the OS's job to work and act accordingly. You dispatch the message to the **Windows** operating system's message handler. The `TranslateMessage()` just converts the messages from the `GetMessage()` or `PeekMessage()` outputs into character messages that are understood. This call may also post new messages to the message queue, depending on the situation.
 
-Ok, let's write some code now. Let's say that you have an application, written in a **SuperChad** language like **C++** and you want to create a window. You could do something like this:
+Okay, let's write some code now. Let's say that you have an application, written in a **SuperChad** language like **C++** and you want to create a window. You could do something like this:
 
 ```cpp
 #include <windows.h>
@@ -129,7 +129,7 @@ LRESULT CALLBACK WindowProc(
 }
 ```
 
-The code above actually comes from [Microsoft's Documentation](https://learn.microsoft.com/en-us/windows/win32/learnwin32/creating-a-window) and it's pretty much the boiler plate that's used, with modifications according to what you need (it can get complex pretty quick).
+The code above actually comes from [Microsoft's Documentation](https://learn.microsoft.com/en-us/windows/win32/learnwin32/creating-a-window) and it's pretty much the boilerplate that's used, with modifications according to what you need (it can get complex pretty quick).
 
 If you run that code you'll see a new Window being created and disappearing instantly. 
 
@@ -143,9 +143,9 @@ while (GetMessage(&msg, NULL, 0, 0) > 0) {
 }
 ```
 
-What're we doing here? Exactly what the message loop picture shows. We get a `while()` loop going until there are no more messages to process (Window closed). Inside we call `TranslateMessage()` and `DispatchMessage()`.
+What are we doing here? Exactly what the message loop picture shows. We get a `while()` loop going until there are no more messages to process (Window closed). Inside we call `TranslateMessage()` and `DispatchMessage()`.
 
-The code that will handle these messages is the `WindowProc()` callback, with which we also create the window according to our needs, when the message is of type **WM_PAINT**.
+The code that will handle these messages is the `WindowProc()` callback, with which we also create the window according to our needs when the message is of type **WM_PAINT**.
 
 **By the way, this `WindowProc()` callback thing, is actually what handles our messages/events.**
 
@@ -171,8 +171,8 @@ When you do something like clicking the $ x $ button to close the window, the fo
 
 ![](/images/DestroyWindow.png)
 
-Allright, what's happening here? The most important thing is to understand that your program does **NOT** need custom logic for every single message out there, that's why we have a **Windows API** function called `DefWindowProc()`. This function will handle a message in the default way, which for something like closing a window, is pretty obvious. 
-Things like sizing, colors, etc... should definitely be handled on the application code. 
+Alright, what's happening here? The most important thing is to understand that your program does **NOT** need custom logic for every single message out there, that's why we have a **Windows API** function called `DefWindowProc()`. This function will handle a message in the default way, which for something like closing a window, is pretty obvious. 
+Things like sizing, colors, etc. should definitely be handled on the application code. 
 
 Looking at our code from above, the callback `WindowProc()` is the key. We return the result of calling  `DefWindowProc()` on any message that doesn't fit what we have in our switch statement, which will be handled the default way. By "default way" I just mean we don't need to care about it, **Windows** will do it for us.
 
@@ -190,15 +190,15 @@ This will force the posting of a **WM_QUIT** message (see it against the picture
 
 # Hooks, finally...
 
-Now we're ready to tackle the fun stuff. Hooking is not a **Windows** specific concept. I'm not a native English speaker and I'm lazy, so here's the wiki definition:
+Now we're ready to tackle the fun stuff. Hooking is not a Windows-specific concept. I'm not a native English speaker and I'm lazy, so here's the wiki definition:
 
-> In computer programming, the term hooking covers a range of techniques used to alter or augment the behaviour of an operating system, of applications, or of other software components by intercepting function calls or messages or events passed between software components. Code that handles such intercepted function calls, events or messages is called a hook. - Wikipedia (Hooking)
+> In computer programming, the term hooking covers a range of techniques used to alter or augment the behavior of an operating system, of applications, or of other software components by intercepting function calls or messages or events passed between software components. Code that handles such intercepted function calls, events or messages is called a hook. - Wikipedia (Hooking)
 
-Yeah, so basically a hook is like putting ourselves in the middle of a system call, intercepting it and doing whatever we want, then returning it to its rightful place. Image time!
+Yeah, so basically a hook is like putting ourselves in the middle of a system call, intercepting it and doing whatever we want, and then returning it to its rightful place. Image time!
 
 ![normal usage and hooked](/images/hooked-unhooked.png)
 
-Hopefully it's easier to grasp now, we're really just placing ourselves in a position where we can read these low level calls and do something with them.
+Hopefully, it's easier to grasp now, we're really just placing ourselves in a position where we can read these low-level calls and do something with them.
 
 When we intercept a system call, if we want it to go through smoothly for the user/application, we need to pass it through like it normally would, the only difference is that we may be able to change the arguments of certain functions, log sensitive information (keyloggers?) and so on...
 
@@ -206,7 +206,7 @@ When we intercept a system call, if we want it to go through smoothly for the us
 
 #### SetWindowsHook()
 
-Usually, the way we achieve hooking on windows is by using a **Windows API** function called `SetWindowsHook()`. The way it works is, we create a library **dll** that contains our intercepting code. Then, we use this function to register that intercepting code against a certain process(es), by specifying a family of messages or events to intercept.
+Usually, the way we achieve hooking on Windows is by using a **Windows API** function called `SetWindowsHook()`. The way it works is, that we create a library **dll** that contains our intercepting code. Then, we use this function to register that intercepting code against a certain process(es), by specifying a family of messages or events to intercept.
 
 I urge you to look at the [official docs for this](https://learn.microsoft.com/en-us/windows/win32/winmsg/using-hooks). There, you'll see that the different types of hooks we have are:
 
@@ -222,7 +222,7 @@ For the purpose of this post, we'll focus on the first one (**WH_CALLWNDPROC**),
 
 #### The pieces
 
-Ok, we're getting closer to end game here. If we want to intercept these messages, the first thing is to identify the pieces we need to develop. 
+Ok, we're getting closer to the end game here. If we want to intercept these messages, the first thing is to identify the pieces we need to develop. 
 
 - **dll** with intercepting code
 - **Injector**. Makes a call to `SetWindowsHook()`, specifying our newly created library and injecting it in the processes.
@@ -243,11 +243,11 @@ extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
 }
 ```
 
-After we inject this code in our processes and register a hook for it, every relevant message will be intercepted here.
+After we inject this code into our processes and register a hook for it, every relevant message will be intercepted here.
 
-We have to call `CallNextHook()` always, so that the system call is released and processed normally.
+We have to call `CallNextHook()` always so that the system call is released and processed normally.
 
-**By the way, you may notice that these functions actually have names like `FunctionEx()` instead of `Function()`. There's a reason for this, Microsoft screwed up and the "Ex" stands for "Excuse me". Bottom line is... legacy issues. I mentioned in the beginning that the Windows API is chaotic and ugly, it is what it is**
+**By the way, you may notice that these functions actually have names like `FunctionEx()` instead of `Function()`. There's a reason for this, Microsoft screwed up and the "Ex" stands for "Excuse me". The bottom line is... legacy issues. I mentioned in the beginning that the Windows API is chaotic and ugly, it is what it is**
 
 #### The Injector
 
@@ -284,9 +284,9 @@ int main() {
 }
 ```
 
-First thing to do is to load the **dll** we just created. We can do this using the `LoadLibrary()`. Then we can get the address of our procedure/function by its name. 
+The first thing to do is to load the **dll** we just created. We can do this using the `LoadLibrary()`. Then we can get the address of our procedure/function by its name. 
 
-With this address, we can easily set our **Windows Hook**, by calling the `SetWindowsHook()` function. It's signature is as follows:
+With this address, we can easily set our **Windows Hook**, by calling the `SetWindowsHook()` function. Its signature is as follows:
 
 ```cpp
 HHOOK SetWindowsHookEx(
@@ -299,7 +299,7 @@ HHOOK SetWindowsHookEx(
 
 Looking at the arguments, we pass **WH_CALLWNDPROC** as the hook identifier, our procedure address as the **HOOKPROC**, the **dll** and finally the threadId, which we'll run on 0 (current thread).
 
-After we're hooked, we'll run this in a very similar fashion to the way we ran our **Create Window** application from before. We'll have a message loop that runs permanently until no more messages are found. After that it runs the `FreeLibrary()` and `UnhookWindowsHook()` functions, in order to dispose of that library and uninstall the hook.
+After we're hooked, we'll run this in a very similar fashion to the way we ran our **Create Window** application from before. We'll have a message loop that runs permanently until no more messages are found. After that, it runs the `FreeLibrary()` and `UnhookWindowsHook()` functions, in order to dispose of that library and uninstall the hook.
 
 One other thing I like to add is some **signal** handlers for when you close the app with **CTRL-C**, and so on...
 
@@ -401,7 +401,7 @@ Add this anywhere inside the `if (nCode == HC_ACTION) {}` block or the message c
 
 ![debugview-2](/images/DebugView2.png)
 
-When my **dll** was injected, I opened up our first ever application, and it shows here!
+When my **dll** was injected, I opened up our first-ever application, and it shows here!
 
 ![debugview-3](/images/DebugView3.png)
 
@@ -470,8 +470,8 @@ extern "C" __declspec(dllexport) LRESULT WINAPI hook_proc(
 
 Remember when I mentioned you had to call the `CallNextHook()` function as soon as possible? What happens if you "accidentally" put a `Sleep()` in when someone wants to close the Window?
 
-Yeah, it's going to block until it closes. Try it!
+Yeah, it's going to be blocked until it closes. Try it!
 
-There's a lot you can do with this, I may write a post on how to build a keylogger with this approach. It's actually not complicated at all and it's a fun little project.
+There's a lot you can do with this, I may write a post on how to build a keylogger with this approach. It's not complicated at all and it's a fun little project.
 
-**Hopefully you learnt something new, if not, sorry about that. Thanks for reading, bye.**
+**Hopefully you learned something new, if not, sorry about that. Thanks for reading, bye.**
