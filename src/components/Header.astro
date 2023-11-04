@@ -23,49 +23,14 @@ const url = new URL(Astro.request.url);
 	});
 </script>
 
-<header>
+<header style="margin-bottom: 2rem">
 	<span>
 		<a
 			href="/"
 			class="logo"
 			aria-current={url.pathname === "/" ? "page" : false}
 		>
-			<svg
-				version="1.0"
-				xmlns="http://www.w3.org/2000/svg"
-				width="105.000000pt"
-				height="105.000000pt"
-				viewBox="0 0 104.000000 100.000000"
-				preserveAspectRatio="xMidYMid meet"
-			>
-				<g
-					transform="translate(0.000000,107.000000) scale(0.10000,-0.100000)"
-					fill="#000000"
-					stroke="none"
-				>
-					<path
-						d="M497 1174 c-4 -4 -7 -145 -7 -313 l0 -306 38 -65 38 -65 80 0 79 0 5
-99 5 99 78 -102 78 -101 80 0 79 0 0 69 c0 67 -1 70 -56 145 l-56 76 31 39
-c46 57 64 108 64 176 1 71 -25 135 -72 183 -63 63 -78 67 -276 70 -99 2 -183
-0 -188 -4z m344 -36 c47 -14 114 -68 136 -112 54 -104 21 -227 -78 -293 l-41
--27 -24 29 -23 29 37 21 c40 22 82 91 82 135 0 40 -42 113 -79 137 -29 20 -47
-23 -132 23 l-99 0 0 -115 0 -115 85 0 c98 0 125 16 125 72 0 46 -25 68 -76 68
--36 0 -46 5 -64 30 l-21 30 66 0 c77 0 118 -17 145 -63 40 -66 14 -146 -61
--184 -24 -12 -43 -28 -41 -35 2 -7 53 -79 113 -159 60 -80 109 -149 109 -153
-0 -3 -21 -6 -47 -6 l-48 0 -129 165 c-71 91 -132 165 -137 165 -5 0 -10 -46
--11 -102 l-3 -103 -52 -3 -53 -3 0 290 0 291 141 0 c79 0 159 -5 180 -12z
-m-141 -220 c0 -34 -3 -38 -25 -38 -24 0 -25 2 -25 72 l0 72 25 -34 c16 -22 25
--47 25 -72z m94 20 c15 -25 -3 -52 -38 -56 -24 -3 -26 -1 -26 38 0 39 2 41 26
-38 15 -2 32 -11 38 -20z m-94 -354 c0 -46 -2 -84 -5 -84 -2 0 -11 13 -20 30
--10 19 -15 56 -15 107 l1 78 19 -24 c16 -19 20 -38 20 -107z m269 35 c40 -54
-51 -78 49 -100 -3 -28 -7 -25 -71 60 -64 84 -75 111 -43 111 8 0 37 -32 65
--71z m-311 -114 c12 -19 22 -39 22 -45 0 -5 -20 -10 -45 -10 -40 0 -47 4 -70
-37 -14 21 -25 41 -25 45 0 5 21 8 48 8 43 0 49 -3 70 -35z"
-						fill="#53C68C"></path>
-				</g>
-			</svg>
-
-			<span>Marcos Caramalho</span>
+			<span>0x52657A5A</span>
 		</a>
 		<nav id="navigation-menu" aria-label="Main">
 			<a href="/" aria-current={url.pathname === "/" ? "page" : false}>Home</a>
@@ -99,7 +64,7 @@ m-141 -220 c0 -34 -3 -38 -25 -38 -24 0 -25 2 -25 72 l0 72 25 -34 c16 -22 25
 
 <style>
 	header {
-		@apply relative z-50 mb-28 flex items-center sm:pl-[4.5rem];
+		@apply relative z-50 mb-28 flex items-center sm:pl-[0rem];
 
 		.logo {
 			@apply inline-flex items-center grayscale hover:filter-none sm:relative sm:inline-block;
@@ -110,6 +75,10 @@ m-141 -220 c0 -34 -3 -38 -25 -38 -24 0 -25 2 -25 72 l0 72 25 -34 c16 -22 25
 
 			> span {
 				@apply text-xl font-bold sm:text-2xl;
+			}
+
+			svg:empty + span {
+				@apply sm:relative sm:left-0;
 			}
 		}
 

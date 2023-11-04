@@ -1,5 +1,5 @@
 const siteMeta = {
-  title: "Marcos Caramalho",
+  title: "0x52657A5A",
   description: "Blog",
   lang: "en-GB",
   ogLocale: "en_GB",
