@@ -1,0 +1,157 @@
+---
+layout: "@/layouts/BlogPost"
+title: CPTS Review
+pubDate: 2025-01-13
+publishDate: 13 January 2025
+description: My review of the HTB CPTS Certification
+categories: ["hacking"]
+tags: ["hacking", "cpts", "cpts", "certifications"]
+seoMetaDescription: 'My review of CPTS'
+---
+
+# Intro
+
+I have been into cybersecurity before I even knew about the term. When I was a kid, I had this constant urge to see how everything worked and it was a matter of time until this urge transitioned into computers. Eventually I found out about CTFs and challenges alike and I got a bit addicted to them; as we all know, gamified things are fun.
+
+Fast forward a little bit and I ended up working as a software engineer, which I still do; however, my interest in the cybersecurity field, specifically in read team operations, has never died. A couple of years ago I decided to shift focus a little bit and I enrolled in a master's degree program in cybersecurity. This program allowed me to get exposure to some amazing content that has sparked the interest in me to get certified, not just at an academic level, but also with actual street cred in the form of certifications.
+
+At first I thought about doing `OSCP`, from **Offensive Security**, but the pricing just looks prohibitive for what it offers. After researching a little bit, I saw that **Hack The Box** had an academy that was offering some newish to new certifications, namely `CPTS` (Certified Penetration Testing Specialist). This post serves as a review/story of what the path to certified looked like for me, and I assume, for many others.
+
+# Why CPTS over OSCP
+
+If you do a little bit of googling, you will find that `CPTS`, in terms of knowledge, is miles ahead of `OSCP`, for a fraction of the cost (at least for me, with a student subscription on **HTB Academy**). It is true that `OSCP`, and other certifications, have more market value among recruiters, however, I believe that will eventually shift as more and more context and knowledge is given from the people working in the field, to these recruiters.
+
+I am not bashing `OSCP`, in fact, I want to get it as well (quote me on this, 2025 `OSCP` coming) but I'm currently in search for knowledge more than just credentials, obviously, the credentials are a big plus (unfortunately the world revolves around authority and these can help with that).
+
+I also talked with people that have done the `CPTS` into `OSCP` path and they all said `OSCP` became an easy task after `CPTS`, strictly because of how much more difficult the **HTB** cert is, however, that's not to say `OSCP` is easy, since the whole 24 hours proctored exam with an extra 24 for the report will make it hard by itself.
+
+Anyways, this is why I chose `CPTS` as my first hacking certification, a function of cost and knowledge, outweighing market value because I'm sure that shifts with time, as all things do.
+
+# Prior knowledge
+
+Before I started studying for this, I already had some knowledge of penetration testing techniques, albeit mostly in things not covered a lot, or at all, in the path you need to follow for `CPTS`. The things I like the most in the field are **Reverse Engineering** and **Binary Exploitation**, so a path that ended up focusing a lot on `AD` (Active Directory) attacks and so on meant I had a lot to learn.
+
+# The Path
+
+Oh, "The Path". I didn't mention this till now but, to actually be able to attempt the `CPTS` exam, you need to finish 100% of the **Penetration Testing Job Role Path** on the **HTB Academy**. This is a large learning path that will teach you everything you need to know to start calling yourself a hacker with some authority (It is still not an expert level certification though, so go easy on self clout :)).
+
+To give an overview and a sneak peak of what to expect, this is a snippet of something you read at the very end of the path, stating what it contains at an abstract high level:
+
+*Amazing work! You have made it to the end of the Attacking Enterprise Networks module and perhaps even the end of the Penetration Tester job role path. In the process you accomplished the following:*
+
+- *`Hacked around 250 Targets`*
+- *`400+ module sections completed`*
+- *`500+ challenge questions solved`*
+- *`Over 750,000 words read`*
+
+**750k** words, that's like 1666 pages of Arial size 12! Yeah it's a lot, and you feel great once you click that finish button that awards you the path badge.
+
+You will see people complaining about having to do 100% of the path before attempting the exam, and frankly, I was one of those as well, but! It's completely understandable once you go through the exam why **HTB** does it like this. The path will teach you A LOT of information, with most of it appearing in the exam one way or the other. You are not supposed to just blast through the path and copy the commands or download the cheatsheets they provide along the way, but rather to absorb and note take everything you find that may be of interest (hint: most of it is). 
+
+Forcing the students to do 100% of the path, due to the exercises based nature of it, will make it so every single student that properly finishes it with good notes and proper understanding of its contents, will be able to get certified.
+
+The content itself is excellent, with a couple things to point out in terms of modules that could be simplified or changed a little bit (looking at you Password Cracking module!!).
+
+Another thing you must know before jumping on this ship is, there are no videos in the content. It's all text based, which I personally love to death, but I know some people don't, so keep that in mind.
+
+# Preparing for the exam
+
+There is no bulletproof way of preparing for the exam that will get you certified for sure, as no matter how prepared you are, you can still hit road blocks that take you a long time to pass, and if you have lots of those, you're royally screwed.
+
+Either way, to prepare for the exam, what I did was taking detailed notes of the course/path materials, which included explanations (not over the top, but rather simple and concise) of the many concepts covered, protocols, applications, etc...; as well as every single command I had ran and seen, which amounted to hundreds of pages of notes.
+
+## Note Taking
+
+For note taking, I used `Obsidian` because of multiple reasons:
+1) Ownership of data, it's all within markdown files I'm hosting myself, easily versioned with `git`
+2) Vim support (I can't type without it so yeah)
+3) Pretty UI
+4) Performant even with large files
+5) Easy to link stuff around and create a decent brain-like structure (synapsis all the way baby)
+6) Did I mention Vim support?
+7) Vim
+8) Back to 2)
+
+You do you, use whatever you're comfortable with, but I really suggest something that can take in a lot of data without lagging and/or having random issues. Make sure you have a way to backup your data too!! trust me, if you lose that pesky command that took you a while to figure out, you will not be happy.
+
+I also suggest going on `github` and finding some repositories of notes for CPTS and other certifications, just to see how people are structuring them ~and perhaps even steal some nuggets of information~
+
+## Practicing
+
+For practice, the most commonly advised thing to do is to follow **IppSec** playlist of practice machines for `CPTS`, which you can find here https://www.youtube.com/watch?v=H9FcE_FMZio&list=PLidcsTyj9JXItWpbRtTg6aDEj10_F17x5.
+
+You also have the https://ippsec.rocks website that allows you to search for certain topics and see content on them, by **IppSec**. 
+
+Unfortunately I can't spoil the exam, but make sure you understand the things that will give you headaches in the path... *cough AD cough cough*
+
+### Do we do Pro Labs?
+
+It's debatable, I didn't, some people do. I think that if you have the money to shell out for a pro labs subscription, you should definitely give it a go, mainly the `Dante` machine. If you are able to power through that one, you should be able to, alongside the `CPTS` path content, do the exam. Another one that is advised is the `Zephyr` pro lab, so may just do both for good measure as `Dante` is mostly good for the web app and privilege escalation parts of the exam.
+
+## When are you ready?
+
+This is all subjective, if you're like me, you will never feel ready because impostor syndrome is just the hidden beast that looks upon you constantly and makes you doubt yourself in every single little thing you do, however, you must power through it and just move ahead sometimes.
+
+For me, I didn't feel prepared when I did the exam, this was before the holidays and I just wanted to get it done ASAP so I kind of yeeted my way in there a couple days after I finished the path, knowing I had a second try in case I sucked in the first one.
+
+In all seriousness, having successfully finished all the flags in the exam, I can say that if you are able to finish the last portion of the path without much issues, understanding everything you did, as well as some of the machines stated in the playlist above from **IppSec**, you are ready.
+
+# The Exam
+
+To do the exam, with exception of purchasing one of those yearly subs, you buy an exam voucher. The voucher is good for two attempts so you know that if you fail the first time, you have a second try waiting.
+
+The exam is essentially you, hopefully with success, compromising an entire enterprise infrastructure, that starts with a professional letter of engagement that you, the penetration tester, will read and accept.
+
+You are supposed to do everything as if you were doing it in a professional standing, no half measures and no stones unturned, unless they're not in scope. Every detail counts and you need to, not only compromise whatever's in scope, but also provide a professional grade penetration testing report at the end, which is the thing they actually grade you on, besides the points from compromising user and root entities on various machines.
+
+It's essentially a big ass CTF challenge that looks seriously like something you'd encounter in a real world scenario. It has a total of 100 points to gather, and you need 85 points to pass, or in other words, 12 out of 14 flags.
+
+## Tip 1 - Early Exit
+
+You need 12 flags out of 14, so the moment you get that 12th flag, make sure you get your report as done as it can be, ready to be sent really. At that stage, if you have a good report, you are certified.
+
+If you have time after that, go for the other 2 flags and if you succeed, add them in the report without sacrificing the quality of it. 
+
+## Tip 2 - Start Writing the Report ASAP
+
+The moment you start working on the exam, start populating the report with everything you can. I suggest using `SysReptor`'s `CPTS` template as it makes the whole report writing process a lot easier, just be careful with it since some people complain of lag issues once you start adding a bunch of screenshots and text to it, I personally didn't find any.
+
+## Tip 3 - Document every little detail
+
+For the love of god, document **everything** you do in there. Take screenshots of what you do, copy every command you run and the respective outputs and make sure to document the process as you go, preferably in a way that can easily be added to the report as is, like "The tester ran command X and found that Y was vulnerable to Z. With this, the tester was able to gain access to ..."
+
+Never say you did something without the receipts. These can be code blocks with commands and outputs, or simple screenshots. Full disclosure, I mostly used screenshots, but one of the things I would do different is to take advantage of code blocks for everything I could, reducing the number of screenshots for the things that need to be in image format, e.g.; web apps attack chains and the like...
+
+## Tip 4 - Have a separate document with high level steps
+
+In the report, you will be required to write a high level attack chain, as well as a very detailed one. Keeping the high level one from the beginning, will save you time, trust me (or you need to go through everything and start reducing it to high level descriptions of what has been done).
+
+## Tip 5 - Take breaks
+
+Don't sacrifice your health for any certification, it's not worth it no matter how much street cred you get. Also, taking care of yourself during this process will help you get better results, a fresh mind thinks better and faster than a tired one.
+
+## Tip 6 - Don't stress, 10 days are enough
+
+When I first knew about the **10 days** deadline, I thought the exam would be the most brutal thing I'd encounter, but the fact is, it isn't.
+
+The certification has a **10 days** deadline because it caters towards a group of people that may have families, school, jobs etc... You're not supposed to take 240 hours working on it.
+
+Personally, it took me around 5 days to get everything I needed and an extra day to finish the report.
+
+## Tip 7 - Small Things Matter
+
+Although I passed first try and feedback said my report was really clean and professional, I still had some things I could do better as per the reviewer. Without getting into detail, make sure you catalog everything you add, tables, images, code block, everything! Make sure you try your best to hide stolen credentials such as passwords from the outputs, as you wouldn't really put those in a professional grade report. Write in first person, "The tester did X", instead of "I did X", etc...
+
+Once thing that helped me was to download a couple example reports from companies that do penetration testing and seeing how they worded their work.
+
+## Finishing Thoughts
+
+Once you submit that exam, you will probably be constantly F5'ing to check the results, but know they say it can take up to 20 business days, and it can actually take that long.
+
+For me, I had my result after around 15 business days, which is probably more than average, but don't stress too much, you will have your result within the specified timeframe. You can take that time to start working on some other learning path, which I did with the bug bounty path.
+
+Also, my report had 100 pages on the dot, which is right on average. My advice is to stress if you have like 30 pages, but besides that just make sure you have every detail documented.
+
+All in all, I highly recommend this path to everyone, even if you're not looking for the credential, do it because you will learn a metric ton of information that's really high quality, when compared to competitors.
+
+With this I say goodbye and hope to be writing more in the near future, once I get done with the other 1000 things I'm trying to not finish in time 
