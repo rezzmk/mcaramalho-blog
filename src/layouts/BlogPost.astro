@@ -40,6 +40,10 @@ const paginationProps = {
 		integrity="sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ"
 		crossorigin="anonymous"
 	/>
+	<script type="module">
+		import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+		mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+	</script>
 
 	<div class="px-4 sm:px-8 sm:grid sm:items-start max-w-6xl mx-auto" id="content-wrapper">
 		<!-- Mobile TOC at top -->
